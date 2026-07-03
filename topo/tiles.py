@@ -70,13 +70,34 @@ def global_px(lat, lon, z):
     )
 
 
-def stitch_map(points, refuge, out_path, z=17, Wc=1200, Hc=720):
+def _fit_zoom(all_pts, Wc, Hc, padding_frac=0.15, zmax=19, zmin=10):
+    """Pick the highest integer zoom where every point fits inside a Wc×Hc
+    canvas with `padding_frac` on each side. Falls back to `zmin` if nothing
+    fits (very spread-out points).
+    """
+    if len(all_pts) < 2:
+        return 17
+    avail_w = Wc * (1 - 2 * padding_frac)
+    avail_h = Hc * (1 - 2 * padding_frac)
+    for z in range(zmax, zmin - 1, -1):
+        xs = [global_px(la, lo, z)[0] for la, lo in all_pts]
+        ys = [global_px(la, lo, z)[1] for la, lo in all_pts]
+        if (max(xs) - min(xs)) <= avail_w and (max(ys) - min(ys)) <= avail_h:
+            return z
+    return zmin
+
+
+def stitch_map(points, refuge, out_path, z=None, Wc=1200, Hc=720):
     """Compose the getting-there map JPEG.
 
     points: list of dicts with lat/lon/label (+ optional name).
     refuge: dict with lat/lon/name (see style.REFUGE).
+    z:      tile zoom. If None (the default), picks the highest zoom that
+            fits every point in the canvas with 15% padding.
     """
     all_pts = [(refuge["lat"], refuge["lon"])] + [(p["lat"], p["lon"]) for p in points]
+    if z is None:
+        z = _fit_zoom(all_pts, Wc, Hc)
     cx = sum(global_px(la, lo, z)[0] for la, lo in all_pts) / len(all_pts)
     cy = sum(global_px(la, lo, z)[1] for la, lo in all_pts) / len(all_pts)
     ox, oy = cx - Wc / 2, cy - Hc / 2
