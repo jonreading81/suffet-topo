@@ -59,21 +59,30 @@ def build_pdf(boulders, out_path, lang="en"):
         c.drawString(M, 30, L["footer"])
         c.drawRightString(W - M, 30, str(p))
 
-    # page 1: getting there map
+    # Page 1: getting-there — wide regional map + prose
     header(L["title"], L["subtitle_getting_there"])
     cw = W - 2 * M
     mtop = H - 116
-    map_path = os.path.join(os.path.dirname(out_path), "_map.jpg")
-    im = Image.open(map_path)
-    iw, ih = im.size
-    hm = cw * ih / iw
-    c.drawImage(ImageReader(map_path), M, mtop - hm, cw, hm)
-    c.setStrokeColor(LINE)
-    c.setLineWidth(0.5)
-    c.rect(M, mtop - hm, cw, hm, fill=0, stroke=1)
-    c.setFont("Helvetica-Oblique", 7.5)
-    c.setFillColor(MUT)
-    c.drawString(M, mtop - hm - 12, L["map_caption"])
+    out_dir = os.path.dirname(out_path)
+
+    def _draw_map(path, top_y, caption):
+        im = Image.open(path)
+        iw, ih = im.size
+        h = cw * ih / iw
+        c.drawImage(ImageReader(path), M, top_y - h, cw, h)
+        c.setStrokeColor(LINE)
+        c.setLineWidth(0.5)
+        c.rect(M, top_y - h, cw, h, fill=0, stroke=1)
+        c.setFont("Helvetica-Oblique", 7.5)
+        c.setFillColor(MUT)
+        c.drawString(M, top_y - h - 12, caption)
+        return top_y - h - 22  # next y (below caption + a bit of gap)
+
+    y_after_maps = _draw_map(
+        os.path.join(out_dir, "_map_regional.jpg"),
+        mtop,
+        L["regional_map_caption"],
+    )
 
     # Getting-there prose below the map, inside a soft card (same visual
     # language as the Location card on the boulder pages). Paragraphs come
@@ -108,7 +117,7 @@ def build_pdf(boulders, out_path, lang="en"):
         heading_block_h = 26  # heading baseline + accent underline + gap
         card_h = pady + heading_block_h + prose_h + pady
 
-        card_top = mtop - hm - 26
+        card_top = y_after_maps
         card_bottom = card_top - card_h
 
         # Card background + left accent bar
@@ -140,8 +149,53 @@ def build_pdf(boulders, out_path, lang="en"):
     footer(1)
     c.showPage()
 
+    # Page 2: boulders overview — close-up aerial map + numbered legend
+    header(L["title"], L["subtitle_boulders"])
+    close_path = os.path.join(out_dir, "_map.jpg")
+    im = Image.open(close_path)
+    iw, ih = im.size
+    hm2 = cw * ih / iw
+    c.drawImage(ImageReader(close_path), M, mtop - hm2, cw, hm2)
+    c.setStrokeColor(LINE)
+    c.setLineWidth(0.5)
+    c.rect(M, mtop - hm2, cw, hm2, fill=0, stroke=1)
+    c.setFont("Helvetica-Oblique", 7.5)
+    c.setFillColor(MUT)
+    c.drawString(M, mtop - hm2 - 12, L["map_caption"])
+
+    # Numbered legend below the map — pin number → boulder name, so readers
+    # can cross-reference the map with the detail pages that follow.
+    if boulders:
+        ly = mtop - hm2 - 40
+        c.setFillColor(INK)
+        c.setFont(SERIF, 13)
+        c.drawString(M, ly, L["boulders_heading"])
+        ly -= 6
+        c.setStrokeColor(BLUE)
+        c.setLineWidth(1.2)
+        c.line(M, ly, W - M, ly)
+        ly -= 22
+        row_h = 22
+        r = 9
+        for b in boulders:
+            c.setFillColor(BLUE)
+            c.circle(M + r, ly + 3, r, fill=1, stroke=0)
+            c.setFillColor(HexColor("#ffffff"))
+            c.setFont("Helvetica-Bold", 10)
+            c.drawCentredString(M + r, ly, str(b["id"]))
+            c.setFillColor(INK)
+            c.setFont("Helvetica-Bold", 11)
+            c.drawString(M + 2 * r + 10, ly, b["name"])
+            n = len(b["problems"])
+            c.setFillColor(MUT)
+            c.setFont("Helvetica", 9)
+            c.drawRightString(W - M, ly, f"{n} problem{'s' if n != 1 else ''}")
+            ly -= row_h
+    footer(2)
+    c.showPage()
+
     # one detail page per boulder
-    pg = 2
+    pg = 3
     for b in boulders:
         header(b["name"], f"{b['lat']:.5f}°N, {b['lon']:.5f}°E  ·  {b.get('alt_str', '')}")
         im = Image.open(b["_render"])

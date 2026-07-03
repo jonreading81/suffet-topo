@@ -36,7 +36,7 @@ from topo.data import build_boulders, load_rows
 from topo.html import build_html
 from topo.lines import render_boulder_photo
 from topo.pdf import build_pdf
-from topo.style import REFUGE
+from topo.style import IGN_TOPO, REFUGE
 from topo.tiles import bundle_tiles, stitch_map
 
 
@@ -104,11 +104,23 @@ def main():
             b["_photo_uri"] = None
             print("  photo missing:", b["photo_path"])
 
-    # getting-there map
+    # Two cover maps: a wider regional (getting-there) view using the IGN
+    # topo layer for road / place-name legibility, and the close-up aerial
+    # showing the refuge + boulders.
     map_points = [
         {"lat": b["lat"], "lon": b["lon"], "name": b["name"], "label": str(b["id"])}
         for b in boulders
     ]
+    stitch_map(
+        map_points,
+        REFUGE,
+        os.path.join(args.output, "_map_regional.jpg"),
+        z=12,
+        layer=IGN_TOPO,
+        fmt="image/png",
+        Hc=480,
+        show_boulders=False,
+    )
     stitch_map(map_points, REFUGE, os.path.join(args.output, "_map.jpg"))
 
     # bounding box for offline tiles (around refuge + boulders, padded)

@@ -48,8 +48,11 @@ labels:
   en:
     title:                  "Refuge du Suffet boulders"
     subtitle_getting_there: "Haute-Maurienne · getting there"
+    regional_map_caption:   "IGN topo · where the refuge is"
     map_caption:            "IGN aerial · the refuge and the boulders"
     getting_there_heading:  "Getting there"
+    subtitle_boulders:      "Haute-Maurienne · the boulders"
+    boulders_heading:       "The boulders"
     footer:                 "Refuge du Suffet boulders · built from photo GPS + spreadsheet"
     location:               "Location"
     latitude:               "Latitude"
@@ -64,8 +67,11 @@ labels:
   fr:
     title:                  "Blocs du Refuge du Suffet"
     subtitle_getting_there: "Haute-Maurienne · accès"
+    regional_map_caption:   "IGN carte · situation du refuge"
     map_caption:            "IGN aérien · le refuge et les blocs"
     getting_there_heading:  "Accès"
+    subtitle_boulders:      "Haute-Maurienne · les blocs"
+    boulders_heading:       "Les blocs"
     footer:                 "Blocs du Refuge du Suffet · généré depuis GPS + tableur"
     location:               "Localisation"
     latitude:               "Latitude"

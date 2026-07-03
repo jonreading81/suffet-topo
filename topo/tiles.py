@@ -87,17 +87,62 @@ def _fit_zoom(all_pts, Wc, Hc, padding_frac=0.15, zmax=19, zmin=10):
     return zmin
 
 
-def stitch_map(points, refuge, out_path, z=None, Wc=1200, Hc=720):
-    """Compose the getting-there map JPEG.
+def _nice_scale_bar_m(target_m):
+    """Round a target metres value to a 'nice' 1/2/5·10^n so the bar reads
+    cleanly (100 m, 200 m, 500 m, 1 km, 2 km, …)."""
+    import math as _m
 
-    points: list of dicts with lat/lon/label (+ optional name).
+    if target_m <= 0:
+        return 100
+    e = _m.floor(_m.log10(target_m))
+    base = target_m / (10 ** e)
+    if base < 1.5:
+        pick = 1
+    elif base < 3.5:
+        pick = 2
+    elif base < 7.5:
+        pick = 5
+    else:
+        pick = 10
+    return int(pick * 10 ** e)
+
+
+def stitch_map(
+    points,
+    refuge,
+    out_path,
+    z=None,
+    Wc=1200,
+    Hc=720,
+    layer=None,
+    fmt=None,
+    show_boulders=True,
+):
+    """Compose a stitched map JPEG.
+
+    points: list of dicts with lat/lon/label (+ optional name). Ignored for
+            pin-drawing when `show_boulders=False`; still used for framing
+            when `z=None` (auto-fit).
     refuge: dict with lat/lon/name (see style.REFUGE).
     z:      tile zoom. If None (the default), picks the highest zoom that
             fits every point in the canvas with 15% padding.
+    layer:  IGN layer identifier — default aerial. Pass IGN_TOPO for the
+            regional / getting-there map to get road & place-name legibility.
+    fmt:    tile MIME type — default 'image/jpeg' (matches aerial). For
+            IGN_TOPO pass 'image/png'.
+    show_boulders: draw a numbered pin for each entry in `points`. Off for
+                   the regional map, where all pins would cluster on the
+                   refuge marker.
     """
+    if layer is None:
+        layer = IGN_AERIAL
+    if fmt is None:
+        fmt = "image/jpeg"
     all_pts = [(refuge["lat"], refuge["lon"])] + [(p["lat"], p["lon"]) for p in points]
     if z is None:
-        z = _fit_zoom(all_pts, Wc, Hc)
+        # Auto-fit against all points when we're actually going to render them;
+        # otherwise just the refuge and let the caller pick a wider zoom.
+        z = _fit_zoom(all_pts if show_boulders else [all_pts[0]], Wc, Hc)
     cx = sum(global_px(la, lo, z)[0] for la, lo in all_pts) / len(all_pts)
     cy = sum(global_px(la, lo, z)[1] for la, lo in all_pts) / len(all_pts)
     ox, oy = cx - Wc / 2, cy - Hc / 2
@@ -108,7 +153,7 @@ def stitch_map(points, refuge, out_path, z=None, Wc=1200, Hc=720):
         for row in range(r0, r1 + 1):
             try:
                 t = Image.open(
-                    io.BytesIO(fetch_tile(IGN_AERIAL, z, col, row, "image/jpeg"))
+                    io.BytesIO(fetch_tile(layer, z, col, row, fmt))
                 ).convert("RGB")
                 canvas.paste(t, (int(col * 256 - ox), int(row * 256 - oy)))
             except Exception as e:
@@ -131,37 +176,40 @@ def stitch_map(points, refuge, out_path, z=None, Wc=1200, Hc=720):
     )
     d.text((sx + w + 7, sy - 9), refuge["name"], fill=teal + (255,), font=f2)
     # boulder pins
-    for i, p in enumerate(points):
-        bx, by = global_px(p["lat"], p["lon"], z)
-        bx -= ox
-        by -= oy
-        rr = 15
-        label = p.get("label", str(i + 1))
-        d.ellipse([bx - rr, by - rr, bx + rr, by + rr], fill=blue + (255,), outline=(255, 255, 255, 255), width=3)
-        tb = d.textbbox((0, 0), label, font=f2)
-        d.text(
-            (bx - (tb[2] - tb[0]) / 2, by - (tb[3] - tb[1]) / 2 - tb[1]),
-            label,
-            fill=(255, 255, 255, 255),
-            font=f2,
-        )
-        nm = p.get("name", "")
-        if nm:
-            lb = d.textbbox((0, 0), nm, font=f2)
-            d.rectangle(
-                [bx + rr + 2, by - 11, bx + rr + (lb[2] - lb[0]) + 10, by + 13],
-                fill=(255, 255, 255, 220),
+    if show_boulders:
+        for i, p in enumerate(points):
+            bx, by = global_px(p["lat"], p["lon"], z)
+            bx -= ox
+            by -= oy
+            rr = 15
+            label = p.get("label", str(i + 1))
+            d.ellipse([bx - rr, by - rr, bx + rr, by + rr], fill=blue + (255,), outline=(255, 255, 255, 255), width=3)
+            tb = d.textbbox((0, 0), label, font=f2)
+            d.text(
+                (bx - (tb[2] - tb[0]) / 2, by - (tb[3] - tb[1]) / 2 - tb[1]),
+                label,
+                fill=(255, 255, 255, 255),
+                font=f2,
             )
-            d.text((bx + rr + 6, by - 9), nm, fill=blue + (255,), font=f2)
-    # scale bar + N + attribution
+            nm = p.get("name", "")
+            if nm:
+                lb = d.textbbox((0, 0), nm, font=f2)
+                d.rectangle(
+                    [bx + rr + 2, by - 11, bx + rr + (lb[2] - lb[0]) + 10, by + 13],
+                    fill=(255, 255, 255, 220),
+                )
+                d.text((bx + rr + 6, by - 9), nm, fill=blue + (255,), font=f2)
+    # scale bar (adaptive: bar target ~12% of canvas width, snapped to 1/2/5)
     mpp = 156543.03392 * math.cos(math.radians(all_pts[0][0])) / (2 ** z)
-    seg = 100 / mpp
+    bar_m = _nice_scale_bar_m(Wc * 0.12 * mpp)
+    seg = bar_m / mpp
+    bar_label = f"{bar_m} m" if bar_m < 1000 else f"{bar_m // 1000} km"
     bxs, bys = 30, Hc - 40
     d.rectangle([bxs - 6, bys - 24, bxs + seg + 14, bys + 16], fill=(0, 0, 0, 130))
     d.line([(bxs, bys), (bxs + seg, bys)], fill=(255, 255, 255, 255), width=3)
     for xx in (bxs, bxs + seg):
         d.line([(xx, bys - 5), (xx, bys + 5)], fill=(255, 255, 255, 255), width=3)
-    d.text((bxs, bys - 22), "100 m", fill=(255, 255, 255, 255), font=f2)
+    d.text((bxs, bys - 22), bar_label, fill=(255, 255, 255, 255), font=f2)
     d.text((Wc - 40, 18), "N", fill=(255, 255, 255, 255), font=f1)
     d.line([(Wc - 33, 58), (Wc - 33, 28)], fill=(255, 255, 255, 255), width=3)
     d.polygon([(Wc - 33, 24), (Wc - 38, 34), (Wc - 28, 34)], fill=(255, 255, 255, 255))
