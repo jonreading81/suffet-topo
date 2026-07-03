@@ -75,37 +75,68 @@ def build_pdf(boulders, out_path, lang="en"):
     c.setFillColor(MUT)
     c.drawString(M, mtop - hm - 12, L["map_caption"])
 
-    # Getting-there prose below the map. Paragraphs separated by blank lines
-    # in config.yaml; word-wrapped to page width.
+    # Getting-there prose below the map, inside a soft card (same visual
+    # language as the Location card on the boulder pages). Paragraphs come
+    # from `config.yaml -> getting_there.{en,fr}`, split by blank lines.
     gt = getting_there(lang)
     if gt:
-        gy = mtop - hm - 40
-        c.setFillColor(INK)
-        c.setFont(SERIF, 13)
-        c.drawString(M, gy, L["getting_there_heading"])
-        gy -= 6
-        c.setStrokeColor(BLUE)
-        c.setLineWidth(1.2)
-        c.line(M, gy, W - M, gy)
-        gy -= 18
-        c.setFillColor(INK)
-        c.setFont("Helvetica", 10)
+        padx, pady = 16, 14
+        card_w = W - 2 * M
+        content_w = card_w - 2 * padx
         line_h = 14
-        para_gap = 6
+        para_gap = 8
+
+        # Word-wrap first so we know the card's total height.
+        wrapped = []
         for para in gt.split("\n\n"):
             words = para.split()
+            lines = []
             ln = ""
             for wd in words:
-                if c.stringWidth(ln + " " + wd, "Helvetica", 10) < (W - 2 * M):
+                if c.stringWidth(ln + " " + wd, "Helvetica", 10) < content_w:
                     ln = (ln + " " + wd).strip()
                 else:
-                    c.drawString(M, gy, ln)
-                    gy -= line_h
+                    if ln:
+                        lines.append(ln)
                     ln = wd
             if ln:
-                c.drawString(M, gy, ln)
-                gy -= line_h
-            gy -= para_gap
+                lines.append(ln)
+            wrapped.append(lines)
+        prose_h = sum(len(p) * line_h for p in wrapped) + para_gap * max(
+            0, len(wrapped) - 1
+        )
+        heading_block_h = 26  # heading baseline + accent underline + gap
+        card_h = pady + heading_block_h + prose_h + pady
+
+        card_top = mtop - hm - 26
+        card_bottom = card_top - card_h
+
+        # Card background + left accent bar
+        c.setFillColor(CARD)
+        c.roundRect(M, card_bottom, card_w, card_h, 10, fill=1, stroke=0)
+        c.setFillColor(BLUE)
+        c.roundRect(M, card_bottom, 4, card_h, 2, fill=1, stroke=0)
+
+        # Heading
+        hy = card_top - pady - 4
+        c.setFillColor(BLUE)
+        c.setFont(SERIF, 13)
+        c.drawString(M + padx, hy - 10, L["getting_there_heading"])
+
+        # Short accent underline under the heading
+        c.setStrokeColor(BLUE)
+        c.setLineWidth(1.2)
+        c.line(M + padx, hy - 16, M + padx + 44, hy - 16)
+
+        # Prose
+        py = hy - 30
+        c.setFillColor(INK)
+        c.setFont("Helvetica", 10)
+        for lines in wrapped:
+            for ln in lines:
+                c.drawString(M + padx, py, ln)
+                py -= line_h
+            py -= para_gap
     footer(1)
     c.showPage()
 

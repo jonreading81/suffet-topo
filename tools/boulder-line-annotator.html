@@ -61,9 +61,9 @@ input[type=file]{display:none}
     <div class="field"><label>Boulder name (heading)</label><input id="bname" placeholder="e.g. The Prow"></div>
     <div class="field"><label>Photo filename (must match the file in your folder)</label><input id="pname" placeholder="e.g. the-prow.jpg"></div>
     <div id="lines"></div>
-    <button id="copyall" class="primary" disabled style="width:100%">Copy all rows for this boulder (TSV)</button>
+    <button id="copyall" class="primary" disabled style="width:100%">Copy all rows for this boulder (CSV)</button>
     <textarea id="tsv" class="tsv" placeholder="Spreadsheet rows appear here after you copy…" readonly></textarea>
-    <div class="hint">Paste the copied rows straight under your spreadsheet headers: <b>photo · boulder · no · problem · grade · notes · line</b>. The <b>line</b> value is a list of “x,y” points as % of the image, so it renders identically at any size, in both the PDF and the offline map.</div>
+    <div class="hint">Paste the copied rows straight under your CSV headers: <b>photo, boulder, no, problem, grade, notes, notes_fr, line</b>. The <b>line</b> value is a list of “x,y” points as % of the image, so it renders identically at any size, in both the PDF and the offline map.</div>
   </div>
 </div>
 
@@ -200,9 +200,15 @@ function syncFields(){ // update just the pts count + line strings without rebui
   });
 }
 function esc(s){ return (s||'').replace(/"/g,'&quot;'); }
+// CSV field escaping: wrap in double quotes if the value contains a comma,
+// quote, or newline; double any embedded quotes.
+function csvEsc(v){
+  var s = (v == null) ? '' : String(v);
+  return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+}
 function copyRows(ls){
   var photo=el('pname').value, bname=el('bname').value;
-  var rows=ls.filter(l=>l.pts.length>=2).map(l=>[photo,bname,l.no,l.name,l.grade,l.notes,l.notes_fr||'',lineStr(l)].join('\t'));
+  var rows=ls.filter(l=>l.pts.length>=2).map(l=>[photo,bname,l.no,l.name,l.grade,l.notes,l.notes_fr||'',lineStr(l)].map(csvEsc).join(','));
   var txt=rows.join('\n'); el('tsv').value=txt;
   navigator.clipboard&&navigator.clipboard.writeText(txt);
 }
