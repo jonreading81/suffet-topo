@@ -18,14 +18,21 @@ lavender `#A096EF` for projects; logo in the headers).
 2. **Annotate** each photo in `tools/boulder-line-annotator.html` — a standalone,
    offline page: open a photo, click each problem from base to top, set name + grade,
    and copy the spreadsheet-ready rows. Nothing uploads; HEIC is decoded in-browser.
-3. **Record** the rows in a spreadsheet (`templates/…-template.xlsx`), columns:
-   `photo, boulder, no, problem, grade, notes, line`.
+3. **Record** the rows in a CSV (`templates/refuge-du-suffet-boulders-template.csv`
+   is the starting shape), columns:
+   `photo, boulder, no, problem, grade, notes, notes_fr, line`.
+   Edit the CSV in any plain-text editor (VS Code, TextEdit) — Numbers can also open
+   it, though pasting into an .xlsx-with-dropdown was flaky, which is why we're on CSV.
 4. **Generate** the outputs:
    ```bash
-   pip install -r requirements.txt
-   python generate.py --input data --output output
+   python3 -m venv .venv
+   .venv/bin/pip install -r requirements.txt
+   .venv/bin/python generate.py --input data --output output
    ```
-   → `output/refuge-du-suffet-boulders.pdf` and `…-boulders.html`
+   → `output/refuge-du-suffet-boulders.pdf`, `-fr.pdf`, and `-boulders.html`
+
+   Useful flags: `--lang {en,fr,both}` (default `both`),
+   `--no-html` (skip the ~10s tile bundle while iterating on PDF style).
 
 ### Data model
 
@@ -53,27 +60,38 @@ lavender `#A096EF` for projects; logo in the headers).
 
 ```
 suffet-topo/
-├── generate.py            # build script: folder in → PDF + offline HTML out
+├── generate.py            # thin CLI: parses args, orchestrates the topo/ modules
+├── config.yaml            # refuge coords, brand palette, zoom range, PDF labels,
+│                          # getting-there prose (edit this to tweak content/style)
 ├── requirements.txt
+├── requirements-dev.txt   # + pytest, + playwright for HTML testing
+├── topo/                  # library — imported by generate.py
+│   ├── style.py           # loads config.yaml; hx()/font() helpers
+│   ├── exif.py            # GPS EXIF reader
+│   ├── lines.py           # parse_line, catmull, draw_dashed, render_boulder_photo
+│   ├── tiles.py           # IGN fetch / stitch / bundle
+│   ├── pdf.py             # print-ready PDF builder (EN + FR)
+│   ├── html.py            # standalone offline HTML builder (EN)
+│   └── data.py            # CSV / XLSX loading + boulder grouping
 ├── tools/
-│   └── boulder-line-annotator.html   # draw problem lines, export sheet rows (offline)
+│   └── boulder-line-annotator.html   # draw problem lines, export TSV rows (offline)
 ├── templates/
-│   └── refuge-du-suffet-boulders-template.xlsx  # blank sheet w/ grade dropdown
+│   └── refuge-du-suffet-boulders-template.csv  # starter CSV shape
 ├── assets/
 │   ├── logo.svg / logo_white.svg / logo_white.png
 │   └── vendor/leaflet.js, leaflet.css           # vendored for the offline map
 ├── data/                  # your project data (sample included)
-│   ├── boulders.xlsx
+│   ├── boulders.csv
 │   └── photos/38.jpg
+├── tests/                 # pytest — parse_line, catmull, EXIF fixture
 ├── examples/              # sample generated outputs
 └── output/                # generated (gitignored)
 ```
 
 ## Notes & caveats
 
-- `generate.py` is an early, working starting point reconstructed from prototype code.
-  It currently assumes **one photo per boulder** and needs **internet at build time**
-  (to fetch IGN tiles). Refactoring into modules + tests is expected.
+- Assumes **one photo per boulder** and needs **internet at build time** (to fetch IGN
+  tiles for the getting-there map and the offline HTML bundle).
 - Real photo sets contain the **GPS of specific boulders**. This repo is **public** and
   photos are **committed directly** (~30 max, so plain Git — no LFS needed); the coordinates
   are intentionally published as part of the topo.

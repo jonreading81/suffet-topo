@@ -17,7 +17,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas as pdfcanvas
 
-from .style import ACCURACY_FLAG_M, ASSETS, BRAND, labels
+from .style import ACCURACY_FLAG_M, ASSETS, BRAND, getting_there, labels
 
 
 def build_pdf(boulders, out_path, lang="en"):
@@ -74,6 +74,38 @@ def build_pdf(boulders, out_path, lang="en"):
     c.setFont("Helvetica-Oblique", 7.5)
     c.setFillColor(MUT)
     c.drawString(M, mtop - hm - 12, L["map_caption"])
+
+    # Getting-there prose below the map. Paragraphs separated by blank lines
+    # in config.yaml; word-wrapped to page width.
+    gt = getting_there(lang)
+    if gt:
+        gy = mtop - hm - 40
+        c.setFillColor(INK)
+        c.setFont(SERIF, 13)
+        c.drawString(M, gy, L["getting_there_heading"])
+        gy -= 6
+        c.setStrokeColor(BLUE)
+        c.setLineWidth(1.2)
+        c.line(M, gy, W - M, gy)
+        gy -= 18
+        c.setFillColor(INK)
+        c.setFont("Helvetica", 10)
+        line_h = 14
+        para_gap = 6
+        for para in gt.split("\n\n"):
+            words = para.split()
+            ln = ""
+            for wd in words:
+                if c.stringWidth(ln + " " + wd, "Helvetica", 10) < (W - 2 * M):
+                    ln = (ln + " " + wd).strip()
+                else:
+                    c.drawString(M, gy, ln)
+                    gy -= line_h
+                    ln = wd
+            if ln:
+                c.drawString(M, gy, ln)
+                gy -= line_h
+            gy -= para_gap
     footer(1)
     c.showPage()
 
@@ -118,8 +150,14 @@ def build_pdf(boulders, out_path, lang="en"):
             c.setFillColor(WARN if flagged else CARD)
             c.roundRect(rx + 14, yr - mh + 14, rw - 28, 18, 9, fill=1, stroke=0)
             c.setFillColor(AMBER if flagged else MUT)
-            c.setFont("Helvetica-Bold", 8.5)
             msg = (L["gps_warn"] if flagged else L["gps_ok"]) % b["acc"]
+            # Auto-shrink to fit the pill so longer translations (e.g. the FR
+            # accuracy warning) don't overflow.
+            avail = rw - 36
+            fsize = 8.5
+            while c.stringWidth(msg, "Helvetica-Bold", fsize) > avail and fsize > 6:
+                fsize -= 0.25
+            c.setFont("Helvetica-Bold", fsize)
             c.drawString(rx + 22, yr - mh + 20, msg)
 
         yp = yr - mh - 26
@@ -166,10 +204,12 @@ def build_pdf(boulders, out_path, lang="en"):
                     ly -= 13
                     ln = wd
             c.drawString(rx + 24, ly, ln)
-            yp = ly - 18
+            # 14pt above the divider, 22pt below (more visual room before the
+            # next problem's title starts).
+            yp = ly - 36
             c.setStrokeColor(LINE)
             c.setLineWidth(0.5)
-            c.line(rx, yp + 8, rx + rw, yp + 8)
+            c.line(rx, yp + 22, rx + rw, yp + 22)
         footer(pg)
         c.showPage()
         pg += 1

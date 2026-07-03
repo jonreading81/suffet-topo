@@ -60,6 +60,12 @@ def main():
         default="both",
         help="PDF language(s). 'both' writes -fr.pdf alongside the EN one.",
     )
+    ap.add_argument(
+        "--no-html",
+        action="store_true",
+        help="Skip the offline HTML build (skips the ~10s IGN tile bundle — "
+        "handy while iterating on the PDF).",
+    )
     args = ap.parse_args()
 
     photos_dir = os.path.join(args.input, "photos")
@@ -124,17 +130,21 @@ def main():
         )
         print(f"Building PDF ({lang}) -> {os.path.basename(pdf_path)}")
         build_pdf(boulders, pdf_path, lang=lang)
-    print("Bundling offline tiles (needs internet)...")
-    tiles = bundle_tiles(bbox)
-    print(f"  {len(tiles)} tiles bundled")
-    print("Building offline HTML...")
-    build_html(
-        boulders,
-        REFUGE,
-        tiles,
-        bbox,
-        os.path.join(args.output, "refuge-du-suffet-boulders.html"),
-    )
+
+    if args.no_html:
+        print("Skipping offline HTML (--no-html).")
+    else:
+        print("Bundling offline tiles (needs internet)...")
+        tiles = bundle_tiles(bbox)
+        print(f"  {len(tiles)} tiles bundled")
+        print("Building offline HTML...")
+        build_html(
+            boulders,
+            REFUGE,
+            tiles,
+            bbox,
+            os.path.join(args.output, "refuge-du-suffet-boulders.html"),
+        )
     print("Done ->", args.output)
 
 

@@ -49,6 +49,7 @@ labels:
     title:                  "Refuge du Suffet boulders"
     subtitle_getting_there: "Haute-Maurienne · getting there"
     map_caption:            "IGN aerial · the refuge and the boulders"
+    getting_there_heading:  "Getting there"
     footer:                 "Refuge du Suffet boulders · built from photo GPS + spreadsheet"
     location:               "Location"
     latitude:               "Latitude"
@@ -64,6 +65,7 @@ labels:
     title:                  "Blocs du Refuge du Suffet"
     subtitle_getting_there: "Haute-Maurienne · accès"
     map_caption:            "IGN aérien · le refuge et les blocs"
+    getting_there_heading:  "Accès"
     footer:                 "Blocs du Refuge du Suffet · généré depuis GPS + tableur"
     location:               "Localisation"
     latitude:               "Latitude"
@@ -75,3 +77,24 @@ labels:
     gps_ok:                 "GPS ±%d m"
     project_grade:          "Projet"
     legend:                 "Ligne pointillée + marqueur ouvert = projet (non réalisé)."
+
+# Prose that goes below the getting-there map on page 1 of the PDF. Multi-line
+# YAML with the `|` block operator preserves paragraph breaks. Blank lines
+# split paragraphs; word-wrapping is automatic within each paragraph.
+getting_there:
+  en: |
+    From the Refuge du Suffet, the boulders sit in the Vallon d'Ambin about
+    15 minutes' walk south-east along the well-marked path. Follow the trail
+    towards the Col d'Ambin; the first boulders appear on your right just
+    past the second stream crossing.
+
+    Approach shoes are fine. Water at the refuge; nothing on the walk in.
+    Best in dry weather — the granite friction drops sharply when damp.
+  fr: |
+    Depuis le Refuge du Suffet, les blocs se trouvent dans le Vallon d'Ambin,
+    à environ 15 minutes de marche au sud-est par le sentier balisé. Prendre
+    la direction du Col d'Ambin ; les premiers blocs apparaissent sur la
+    droite juste après le second passage de ruisseau.
+
+    Chaussures d'approche suffisantes. Eau au refuge ; rien sur le sentier.
+    Préférer le temps sec — l'adhérence du granit chute nettement à l'humidité.
