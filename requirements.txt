@@ -1,0 +1,4 @@
+Pillow>=10
+pillow-heif>=0.16
+reportlab>=4
+openpyxl>=3.1

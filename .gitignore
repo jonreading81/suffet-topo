@@ -1,0 +1,17 @@
+# generated outputs
+output/*
+!output/.gitkeep
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# os
+.DS_Store
+Thumbs.db
+
+# --- optional: uncomment to keep real boulder photos & their GPS out of git ---
+# data/photos/*
+# !data/photos/.gitkeep

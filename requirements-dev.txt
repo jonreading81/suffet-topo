@@ -1,0 +1,2 @@
+# only needed to visually test the offline HTML in a headless browser
+playwright>=1.40
