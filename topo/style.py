@@ -1,54 +1,46 @@
 """Brand tokens, config, and shared font/colour helpers.
 
+Values here are loaded from `config.yaml` at the repo root so refuge coords,
+brand palette, zoom range, and PDF label strings can be edited without
+touching code.
+
 Centralised so PDF, offline HTML, and the annotator preview stay in lock-step
 (the annotator is a standalone HTML file — keep its colour list in sync with
 `LINE_PALETTE` here whenever either changes).
 """
 import os
 
+import yaml
 from PIL import ImageFont
 
 
 # ---------------------------------------------------------------------------
-# Refuge, brand palette, IGN tile config
-# ---------------------------------------------------------------------------
-REFUGE = {
-    "name": "Refuge du Suffet",
-    "lat": 45.206031,
-    "lon": 6.845828,
-    "alt": 1690,
-}
-
-BRAND = {
-    "blue":   "#004AAD",  # primary
-    "teal":   "#6AB0AB",  # refuge marker / secondary
-    "lav":    "#A096EF",  # projects
-    "orange": "#E4572E",  # high-contrast line
-    "amber":  "#E0A21B",
-}
-
-# problem line colours (graded); projects always use lavender + dashed
-LINE_PALETTE = [
-    BRAND["blue"],
-    BRAND["orange"],
-    BRAND["teal"],
-    BRAND["lav"],
-    BRAND["amber"],
-]
-
-IGN = "https://data.geopf.fr/wmts"
-IGN_AERIAL = "ORTHOIMAGERY.ORTHOPHOTOS"
-IGN_TOPO = "GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2"
-ZOOM_MIN, ZOOM_MAX = 16, 18       # bundled zoom range for the offline map
-ACCURACY_FLAG_M = 15              # GPS accuracy above this = low-confidence warn
-
-
-# ---------------------------------------------------------------------------
-# Asset paths
+# Paths
 # ---------------------------------------------------------------------------
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ASSETS = os.path.join(HERE, "assets")
 FONT_DIR = "/usr/share/fonts/truetype/dejavu"
+CONFIG_PATH = os.path.join(HERE, "config.yaml")
+
+
+# ---------------------------------------------------------------------------
+# Config load
+# ---------------------------------------------------------------------------
+with open(CONFIG_PATH, "r") as _f:
+    _cfg = yaml.safe_load(_f)
+
+REFUGE = _cfg["refuge"]
+BRAND = _cfg["brand"]
+LINE_PALETTE = list(_cfg["line_palette"])
+ZOOM_MIN = int(_cfg["tiles"]["zoom_min"])
+ZOOM_MAX = int(_cfg["tiles"]["zoom_max"])
+ACCURACY_FLAG_M = int(_cfg["gps"]["accuracy_flag_m"])
+LABELS = _cfg["labels"]
+
+# IGN tile server / layer identifiers — code-level constants (not user config).
+IGN = "https://data.geopf.fr/wmts"
+IGN_AERIAL = "ORTHOIMAGERY.ORTHOPHOTOS"
+IGN_TOPO = "GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2"
 
 
 # ---------------------------------------------------------------------------
@@ -67,3 +59,8 @@ def font(size, bold=True):
         return ImageFont.truetype(os.path.join(FONT_DIR, name), size)
     except Exception:
         return ImageFont.load_default()
+
+
+def labels(lang):
+    """Return the translated label dict for `lang` ('en' or 'fr')."""
+    return LABELS[lang]

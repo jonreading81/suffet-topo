@@ -1,0 +1,77 @@
+# Refuge du Suffet topo generator — user-editable config.
+#
+# Edit this file to change the refuge location, brand palette, tile zoom range,
+# or the label strings used in the PDF chrome. Everything else (line drawing,
+# GPS reading, template layout) is fixed in code.
+
+refuge:
+  name: Refuge du Suffet
+  lat: 45.206031
+  lon: 6.845828
+  alt: 1690
+
+# Brand palette — colours re-used across PDF, HTML, and (keep in sync!) the
+# annotator preview at tools/boulder-line-annotator.html.
+brand:
+  blue:   "#004AAD"   # primary
+  teal:   "#6AB0AB"   # refuge marker / secondary
+  lav:    "#A096EF"   # projects
+  orange: "#E4572E"   # high-contrast line
+  amber:  "#E0A21B"
+
+# Problem-line colours (cycled by problem number). Projects always use the
+# lavender + dashed style, so `lav` is intentionally in the list too.
+line_palette:
+  - "#004AAD"
+  - "#E4572E"
+  - "#6AB0AB"
+  - "#A096EF"
+  - "#E0A21B"
+
+tiles:
+  # Bundled zoom range for the offline map. Larger range = more tiles bundled
+  # (bigger HTML, longer build). 16–18 is fine for a small area.
+  zoom_min: 16
+  zoom_max: 18
+
+gps:
+  # If a photo's GPSHPositioningError is ≥ this many metres, the PDF shows a
+  # "low confidence, verify on map" warning.
+  accuracy_flag_m: 15
+
+# PDF chrome labels. Content (boulder names, problem names, GPS numbers, grades)
+# is language-neutral and stays as-is.
+#
+# `Project` (the grade string) is mapped to `Projet` in FR at render time via
+# `project_grade`. Font grades (6B, 7A+, etc.) are never translated.
+labels:
+  en:
+    title:                  "Refuge du Suffet boulders"
+    subtitle_getting_there: "Haute-Maurienne · getting there"
+    map_caption:            "IGN aerial · the refuge and the boulders"
+    footer:                 "Refuge du Suffet boulders · built from photo GPS + spreadsheet"
+    location:               "Location"
+    latitude:               "Latitude"
+    longitude:              "Longitude"
+    altitude:               "Altitude"
+    photo_bearing:          "Photo bearing"
+    problems:               "Problems"
+    gps_warn:               "⚠  GPS ±%d m — low confidence, verify on map"
+    gps_ok:                 "GPS ±%d m"
+    project_grade:          "Project"
+    legend:                 "Dashed line + open marker = project (unclimbed)."
+  fr:
+    title:                  "Blocs du Refuge du Suffet"
+    subtitle_getting_there: "Haute-Maurienne · accès"
+    map_caption:            "IGN aérien · le refuge et les blocs"
+    footer:                 "Blocs du Refuge du Suffet · généré depuis GPS + tableur"
+    location:               "Localisation"
+    latitude:               "Latitude"
+    longitude:              "Longitude"
+    altitude:               "Altitude"
+    photo_bearing:          "Orientation photo"
+    problems:               "Voies"
+    gps_warn:               "⚠  GPS ±%d m — faible précision, à vérifier sur la carte"
+    gps_ok:                 "GPS ±%d m"
+    project_grade:          "Projet"
+    legend:                 "Ligne pointillée + marqueur ouvert = projet (non réalisé)."

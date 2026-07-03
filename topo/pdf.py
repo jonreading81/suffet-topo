@@ -1,6 +1,13 @@
 """Print-ready PDF builder.
 
 Cover page = getting-there aerial map. One detail page per boulder.
+
+Chrome (headings, labels, footer, the accuracy warning, the project legend) is
+translated via `LABELS[lang]` from config.yaml. Content (boulder names, problem
+names, grades, GPS numbers) stays language-neutral. The single exception is
+the `Project` grade string, mapped via `labels['project_grade']` (en: 'Project',
+fr: 'Projet'). Beta / notes uses the `notes_fr` field in FR when present, else
+falls back to `notes`.
 """
 import os
 
@@ -10,10 +17,11 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas as pdfcanvas
 
-from .style import ACCURACY_FLAG_M, ASSETS, BRAND
+from .style import ACCURACY_FLAG_M, ASSETS, BRAND, labels
 
 
-def build_pdf(boulders, out_path):
+def build_pdf(boulders, out_path, lang="en"):
+    L = labels(lang)
     W, H = A4
     c = pdfcanvas.Canvas(out_path, pagesize=A4)
     BLUE = HexColor(BRAND["blue"])
@@ -48,11 +56,11 @@ def build_pdf(boulders, out_path):
         c.line(M, 40, W - M, 40)
         c.setFont("Helvetica", 8.5)
         c.setFillColor(MUT)
-        c.drawString(M, 30, "Refuge du Suffet boulders · built from photo GPS + spreadsheet")
+        c.drawString(M, 30, L["footer"])
         c.drawRightString(W - M, 30, str(p))
 
     # page 1: getting there map
-    header("Refuge du Suffet boulders", "Haute-Maurienne · getting there")
+    header(L["title"], L["subtitle_getting_there"])
     cw = W - 2 * M
     mtop = H - 116
     map_path = os.path.join(os.path.dirname(out_path), "_map.jpg")
@@ -65,7 +73,7 @@ def build_pdf(boulders, out_path):
     c.rect(M, mtop - hm, cw, hm, fill=0, stroke=1)
     c.setFont("Helvetica-Oblique", 7.5)
     c.setFillColor(MUT)
-    c.drawString(M, mtop - hm - 12, "IGN aerial · the refuge and the boulders")
+    c.drawString(M, mtop - hm - 12, L["map_caption"])
     footer(1)
     c.showPage()
 
@@ -91,7 +99,7 @@ def build_pdf(boulders, out_path):
         c.roundRect(rx, yr - mh, rw, mh, 8, fill=1, stroke=0)
         c.setFillColor(BLUE)
         c.setFont(SERIF, 12)
-        c.drawString(rx + 14, yr - 20, "Location")
+        c.drawString(rx + 14, yr - 20, L["location"])
 
         def meta(label, value, yy):
             c.setFont("Helvetica", 8.8)
@@ -101,27 +109,23 @@ def build_pdf(boulders, out_path):
             c.setFillColor(INK)
             c.drawRightString(rx + rw - 14, yy, value)
 
-        meta("Latitude", f"{b['lat']:.5f}°N", yr - 42)
-        meta("Longitude", f"{b['lon']:.5f}°E", yr - 60)
-        meta("Altitude", b.get("alt_str", "–"), yr - 78)
-        meta("Photo bearing", b.get("bearing_str", "–"), yr - 96)
+        meta(L["latitude"], f"{b['lat']:.5f}°N", yr - 42)
+        meta(L["longitude"], f"{b['lon']:.5f}°E", yr - 60)
+        meta(L["altitude"], b.get("alt_str", "–"), yr - 78)
+        meta(L["photo_bearing"], b.get("bearing_str", "–"), yr - 96)
         if b.get("acc") is not None:
             flagged = b["acc"] >= ACCURACY_FLAG_M
             c.setFillColor(WARN if flagged else CARD)
             c.roundRect(rx + 14, yr - mh + 14, rw - 28, 18, 9, fill=1, stroke=0)
             c.setFillColor(AMBER if flagged else MUT)
             c.setFont("Helvetica-Bold", 8.5)
-            msg = (
-                "⚠  GPS ±%d m — low confidence, verify on map" % b["acc"]
-                if flagged
-                else "GPS ±%d m" % b["acc"]
-            )
+            msg = (L["gps_warn"] if flagged else L["gps_ok"]) % b["acc"]
             c.drawString(rx + 22, yr - mh + 20, msg)
 
         yp = yr - mh - 26
         c.setFillColor(INK)
         c.setFont(SERIF, 13)
-        c.drawString(rx, yp, "Problems")
+        c.drawString(rx, yp, L["problems"])
         yp -= 6
         c.setStrokeColor(BLUE)
         c.setLineWidth(1.2)
@@ -147,12 +151,14 @@ def build_pdf(boulders, out_path):
             c.drawString(rx + 24, yp, p["name"])
             c.setFillColor(LAV if p["project"] else BLUE)
             c.setFont("Helvetica-Bold", 10)
-            c.drawRightString(rx + rw, yp, p["grade"])
+            grade = L["project_grade"] if p["project"] else p["grade"]
+            c.drawRightString(rx + rw, yp, grade)
             c.setFillColor(MUT)
             c.setFont("Helvetica", 9)
+            beta = p["notes_fr"] if lang == "fr" and p.get("notes_fr") else p["notes"]
             ln = ""
             ly = yp - 15
-            for wd in (p["notes"] or "").split():
+            for wd in (beta or "").split():
                 if c.stringWidth(ln + " " + wd, "Helvetica", 9) < rw - 24:
                     ln = (ln + " " + wd).strip()
                 else:

@@ -66,6 +66,7 @@ def build_boulders(rows, photos_dir):
                     "name": str(row.get("problem") or "").strip(),
                     "grade": grade or "–",
                     "notes": str(row.get("notes") or "").strip(),
+                    "notes_fr": str(row.get("notes_fr") or "").strip(),
                     "line_pts": parse_line(row.get("line")),
                     "project": project,
                     "color": color,

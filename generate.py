@@ -54,6 +54,12 @@ def main():
         default="output",
         help="output folder",
     )
+    ap.add_argument(
+        "--lang",
+        choices=("en", "fr", "both"),
+        default="both",
+        help="PDF language(s). 'both' writes -fr.pdf alongside the EN one.",
+    )
     args = ap.parse_args()
 
     photos_dir = os.path.join(args.input, "photos")
@@ -110,8 +116,14 @@ def main():
         max(lons) + padlon,
     )
 
-    print("Building PDF...")
-    build_pdf(boulders, os.path.join(args.output, "refuge-du-suffet-boulders.pdf"))
+    langs = ("en", "fr") if args.lang == "both" else (args.lang,)
+    for lang in langs:
+        suffix = "" if lang == "en" else f"-{lang}"
+        pdf_path = os.path.join(
+            args.output, f"refuge-du-suffet-boulders{suffix}.pdf"
+        )
+        print(f"Building PDF ({lang}) -> {os.path.basename(pdf_path)}")
+        build_pdf(boulders, pdf_path, lang=lang)
     print("Bundling offline tiles (needs internet)...")
     tiles = bundle_tiles(bbox)
     print(f"  {len(tiles)} tiles bundled")
