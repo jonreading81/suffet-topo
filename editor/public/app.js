@@ -66,6 +66,8 @@ const els = {
     img: $('#photo'),
     overlay: $('#overlay'),
     canvasHint: $('#canvas-hint'),
+    drawingActions: $('#drawing-actions'),
+    clearDrawing: $('#clear-drawing'),
     finishDrawing: $('#finish-drawing'),
     addProblem: $('#add-problem'),
     problemList: $('#problem-list'),
@@ -273,15 +275,15 @@ function buildProblemRow(p) {
     const node = els.tpl.content.firstElementChild.cloneNode(true);
     node.dataset.pid = p._id;
 
-    const pin = node.querySelector('.pin');
-    pin.style.background = colorFor(p.no);
-
     const nInput = node.querySelector('.p-no');
     const nameInput = node.querySelector('.p-name');
     const gradeSel = node.querySelector('.p-grade');
     const notes = node.querySelector('.p-notes');
     const notesFr = node.querySelector('.p-notes-fr');
 
+    // Colour the whole card's border to match this problem's line — visual
+    // hook so the card and its drawn line share the same identity.
+    node.style.borderColor = colorFor(p.no);
     nInput.value = p.no;
     nameInput.value = p.problem || '';
     for (const g of GRADES) {
@@ -296,7 +298,7 @@ function buildProblemRow(p) {
 
     nInput.addEventListener('input', () => {
         p.no = parseInt(nInput.value) || 0;
-        pin.style.background = colorFor(p.no);
+        node.style.borderColor = colorFor(p.no);
         renderOverlay();
         renderSidebar();
         markDirty();
@@ -318,18 +320,16 @@ function buildProblemRow(p) {
         markDirty();
     });
 
-    node.querySelector('.draw').addEventListener('click', () => {
+    const drawBtn = node.querySelector('.draw');
+    const drawLabel = drawBtn.querySelector('.row-btn-label');
+    drawLabel.textContent = p.line ? 'Edit Line' : 'Draw Line';
+    drawBtn.addEventListener('click', () => {
         const wasDrawing = state.drawingPid === p._id;
         state.drawingPid = wasDrawing ? null : p._id;
         state.addingPoints = false;
         state.hoverPt = null;
         updateDrawingIndicators();
         renderOverlay();
-    });
-    node.querySelector('.clear-line').addEventListener('click', () => {
-        p.line = '';
-        renderOverlay();
-        markDirty();
     });
     node.querySelector('.delete').addEventListener('click', () => {
         const b = selectedBoulder();
@@ -348,16 +348,23 @@ function updateDrawingIndicators() {
     const drawing = state.drawingPid != null;
     els.canvasWrap.classList.toggle('drawing', drawing);
     els.canvasHint.hidden = !drawing;
-    els.finishDrawing.hidden = !drawing;
+    els.drawingActions.hidden = !drawing;
     if (drawing) {
         els.canvasHint.textContent =
             'Click to add points · drag handles to nudge · double-click a handle to remove';
     }
+    const b = selectedBoulder();
     for (const row of els.problemList.querySelectorAll('.problem-row')) {
         const isActive = row.dataset.pid === state.drawingPid;
         row.classList.toggle('drawing', isActive);
-        const drawBtn = row.querySelector('.draw');
-        if (drawBtn) drawBtn.textContent = isActive ? 'Editing…' : 'Draw line';
+        const drawLabel = row.querySelector('.draw .row-btn-label');
+        if (!drawLabel) continue;
+        if (isActive) {
+            drawLabel.textContent = 'Editing…';
+        } else {
+            const p = b?.problems.find((x) => x._id === row.dataset.pid);
+            drawLabel.textContent = p?.line ? 'Edit Line' : 'Draw Line';
+        }
     }
 }
 
@@ -616,6 +623,17 @@ window.addEventListener('keydown', (e) => {
 });
 
 els.finishDrawing.addEventListener('click', finishDrawing);
+
+els.clearDrawing.addEventListener('click', () => {
+    const b = selectedBoulder();
+    const p = b?.problems.find((x) => x._id === state.drawingPid);
+    if (!p) return;
+    p.line = '';
+    state.addingPoints = false; // back to "click to start adding" for the empty line
+    state.hoverPt = null;
+    renderOverlay();
+    markDirty();
+});
 
 // Re-render overlay once the photo loads (viewBox depends on nothing, but the
 // image needs to be sized so the SVG has real screen dimensions).

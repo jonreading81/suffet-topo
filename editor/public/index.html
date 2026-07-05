@@ -83,14 +83,23 @@
                         <img id="photo" alt="" />
                         <svg id="overlay" xmlns="http://www.w3.org/2000/svg"></svg>
                         <div id="canvas-hint" class="canvas-hint" hidden></div>
-                        <button
-                            id="finish-drawing"
-                            class="finish-drawing"
-                            type="button"
-                            hidden
-                        >
-                            ✓ Done
-                        </button>
+                        <div id="drawing-actions" class="drawing-actions" hidden>
+                            <button
+                                id="clear-drawing"
+                                class="drawing-btn drawing-btn-clear"
+                                type="button"
+                                title="Clear this problem's line"
+                            >
+                                Clear
+                            </button>
+                            <button
+                                id="finish-drawing"
+                                class="drawing-btn drawing-btn-done"
+                                type="button"
+                            >
+                                ✓ Done
+                            </button>
+                        </div>
                     </div>
 
                     <div class="problems">
@@ -109,12 +118,23 @@
         <template id="problem-row-tpl">
             <div class="problem-row">
                 <div class="row-top">
-                    <span class="pin"></span>
+                    <div class="row-first">
+                        <label class="field field-inline">
+                            <span>No.</span>
+                            <input class="p-no" type="number" min="1" />
+                        </label>
+                        <button class="row-btn draw" type="button">
+                            <span class="row-btn-icon" aria-hidden="true">✎</span>
+                            <span class="row-btn-label">Draw Line</span>
+                        </button>
+                        <button
+                            class="row-icon delete"
+                            type="button"
+                            title="Delete problem"
+                            aria-label="Delete problem"
+                        >×</button>
+                    </div>
                     <label class="field field-inline">
-                        <span>No.</span>
-                        <input class="p-no" type="number" min="1" />
-                    </label>
-                    <label class="field field-inline flex1">
                         <span>Name</span>
                         <input class="p-name" type="text" />
                     </label>
@@ -122,17 +142,12 @@
                         <span>Grade</span>
                         <select class="p-grade"></select>
                     </label>
-                    <button class="btn btn-ghost draw" type="button">Draw line</button>
-                    <button class="btn btn-ghost clear-line" type="button">Clear</button>
-                    <button class="btn btn-danger delete" type="button">Delete</button>
-                </div>
-                <div class="row-notes">
-                    <label class="field">
-                        <span>Notes (EN)</span>
+                    <label class="field field-inline">
+                        <span>Notes EN</span>
                         <input class="p-notes" type="text" />
                     </label>
-                    <label class="field">
-                        <span>Notes (FR)</span>
+                    <label class="field field-inline">
+                        <span>Notes FR</span>
                         <input class="p-notes-fr" type="text" />
                     </label>
                 </div>

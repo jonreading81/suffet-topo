@@ -103,7 +103,7 @@ body {
     cursor: pointer;
     align-items: center;
 }
-.boulder-list li .row-delete {
+.row-delete {
     width: 28px;
     height: 28px;
     line-height: 24px;
@@ -118,10 +118,13 @@ body {
     justify-self: end;
     transition: color 0.1s ease, background 0.1s ease, border-color 0.1s ease;
 }
-.boulder-list li .row-delete:hover {
+.row-delete:hover {
     color: var(--danger);
     background: #fbe9e7;
     border-color: #f2c9c5;
+}
+.problem-row .row-delete {
+    align-self: center; /* vertically centred on the right edge of the card */
 }
 .boulder-list li:hover {
     background: var(--card);
@@ -283,26 +286,40 @@ body {
     font-size: 12px;
     pointer-events: none;
 }
-.finish-drawing {
+.drawing-actions {
     position: absolute;
     top: 12px;
     right: 12px;
+    display: flex;
+    gap: 8px;
+}
+.drawing-actions[hidden] {
+    display: none;
+}
+.drawing-btn {
     padding: 8px 14px;
-    background: var(--blue);
-    color: #fff;
-    border: none;
     border-radius: 6px;
+    border: 1px solid transparent;
     font: inherit;
     font-weight: 600;
     cursor: pointer;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-    transition: background 0.1s ease;
+    transition: background 0.1s ease, color 0.1s ease, border-color 0.1s ease;
 }
-.finish-drawing:hover {
+.drawing-btn-done {
+    background: var(--blue);
+    color: #fff;
+}
+.drawing-btn-done:hover {
     background: #003a8a;
 }
-.finish-drawing[hidden] {
-    display: none;
+.drawing-btn-clear {
+    background: #fff;
+    color: var(--danger);
+    border-color: #f2c9c5;
+}
+.drawing-btn-clear:hover {
+    background: #fbe9e7;
 }
 
 /* -------------------- problems -------------------- */
@@ -325,36 +342,101 @@ body {
     gap: 10px;
 }
 .problem-row {
+    position: relative;
     background: #fff;
-    border: 1px solid var(--line);
+    /* border colour is set from JS to match this problem's line colour */
+    border: 2px solid var(--line);
     border-radius: 8px;
     padding: 10px 12px;
+}
+.problem-row .row-first {
+    position: relative;
     display: flex;
-    flex-direction: column;
+    align-items: center;
     gap: 8px;
+}
+.problem-row .row-first .field-inline {
+    flex: 1;
+    min-width: 0;
 }
 .problem-row.drawing {
     outline: 2px solid var(--orange);
 }
 .problem-row .row-top {
     display: flex;
-    align-items: flex-end;
+    flex-direction: column;
+    gap: 8px;
+}
+.problem-row .row-top .field-inline {
+    width: 100%;
     gap: 10px;
-    flex-wrap: wrap;
+}
+.problem-row .row-top .field-inline > span {
+    /* Fixed label width so every input starts at the same x. Tuned to fit
+     * 'Notes EN' / 'Notes FR' comfortably. */
+    flex: 0 0 72px;
+    color: var(--mut);
+}
+.problem-row .row-top .field-inline input,
+.problem-row .row-top .field-inline select {
+    flex: 1;
+    min-width: 0;
 }
 .problem-row .row-notes {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
+    grid-template-columns: 1fr;
+    gap: 8px;
 }
-.pin {
-    width: 16px;
-    height: 16px;
+/* -------------------- row icon + pill buttons -------------------- */
+.row-icon,
+.row-btn {
+    background: #fff;
+    border: 1px solid var(--line);
+    color: var(--mut);
+    cursor: pointer;
+    font: inherit;
+    transition: color 0.1s ease, background 0.1s ease, border-color 0.1s ease;
+}
+.row-icon {
+    /* small circular icon button (× delete) */
+    width: 28px;
+    height: 28px;
+    line-height: 24px;
+    padding: 0;
+    text-align: center;
+    font-size: 18px;
     border-radius: 50%;
-    background: var(--blue);
-    align-self: center;
-    margin-top: 18px;
     flex-shrink: 0;
+}
+.row-icon.delete:hover {
+    color: var(--danger);
+    background: #fbe9e7;
+    border-color: #f2c9c5;
+}
+.row-btn {
+    /* pill button with an icon + label, same visual language as .row-icon */
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 12px;
+    border-radius: 999px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.row-btn:hover {
+    color: var(--blue);
+    background: #eef2f8;
+    border-color: #c8d5ea;
+}
+.row-btn-icon {
+    font-size: 13px;
+    line-height: 1;
+}
+.problem-row.drawing .row-btn.draw {
+    color: #fff;
+    background: var(--blue);
+    border-color: var(--blue);
 }
 
 /* -------------------- buttons -------------------- */
