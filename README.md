@@ -12,32 +12,77 @@ lavender `#A096EF` for projects; logo in the headers).
 
 ---
 
-## How it works
+## Getting started
 
-1. **Shoot** boulders with location services on (JPEG is smoother than HEIC).
-2. **Edit** in the local web editor (`editor/`) — a small Node/Express app that reads
-   `data/boulders.csv`, lets you upload photos, browse and edit boulders + problems,
-   draw or re-draw problem lines on the photo, and writes back to the CSV:
-   ```bash
-   cd editor && npm install && npm start
-   # then open http://localhost:3000
-   ```
-   For quick one-off annotation without the server, `tools/boulder-line-annotator.html`
-   is still there — a fully offline single-file page that outputs CSV rows to paste in.
-3. **Record** the rows in the CSV (columns:
-   `photo, boulder, no, problem, grade, notes, notes_fr, line`) — the editor handles
-   this for you; you only touch the file directly if you prefer a plain-text editor.
-   `templates/refuge-du-suffet-boulders-template.csv` is the starter shape.
-4. **Generate** the outputs:
-   ```bash
-   python3 -m venv .venv
-   .venv/bin/pip install -r requirements.txt
-   .venv/bin/python generate.py --input data --output output
-   ```
-   → `output/refuge-du-suffet-boulders.pdf`, `-fr.pdf`, and `-boulders.html`
+### Requirements
 
-   Useful flags: `--lang {en,fr,both}` (default `both`),
-   `--no-html` (skip the ~10s tile bundle while iterating on PDF style).
+- **Python 3.10+** (used by the topo generator + PDF builder)
+- **Node 20+** (used by the local editor app)
+- **Internet at build time** — the map layer fetches IGN tiles when generating
+
+### First-time setup
+
+Two one-off installs, from the repo root:
+
+```bash
+# 1. Python side — for generate.py (PDF/HTML build)
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+
+# 2. Node side — for the editor app
+cd editor && npm install && cd ..
+```
+
+## Everyday workflow
+
+Once set up, the whole loop lives inside the editor app:
+
+```bash
+cd editor && npm start
+# open http://localhost:3000
+```
+
+The editor lets you:
+
+- **Browse** every boulder in `data/boulders.csv` from the left-hand list (with a
+  thumbnail of the associated photo).
+- **Edit** a boulder's name, photo, and its problems' number / name / grade / notes
+  (EN and FR); autosaves in memory, writes to CSV when you hit **Save Boulders**.
+- **Draw lines** — click **Draw line** on a problem, click on the photo to add
+  points, drag handles to nudge them, double-click a handle to remove it, hit
+  Enter/Esc to finish. Lines are Catmull-Rom smoothed as you draw.
+- **Upload photos** — click **Upload…** in the boulder header; the file is copied
+  into `data/photos/` (spaces in filenames become underscores).
+- **Add / delete boulders** — `+ Add boulder` in the sidebar; each row has an `×`
+  on the right to delete.
+- **Generate PDFs** — click **Generate PDFs** to shell out to `generate.py`; a
+  panel shows a spinner while it runs (~10s) then links you straight to the
+  resulting PDFs (EN + FR).
+
+Everything the editor changes lands in `data/boulders.csv` on save and
+`data/photos/` on upload — plain files you can also edit by hand or commit to
+git.
+
+## Generating outputs
+
+Any time you hit **Generate PDFs** in the editor, this is what runs under the
+hood. You can also run it directly:
+
+```bash
+.venv/bin/python generate.py --input data --output output
+```
+
+→ writes to `output/`:
+
+- `refuge-du-suffet-boulders.pdf` (English)
+- `refuge-du-suffet-boulders-fr.pdf` (French)
+- `refuge-du-suffet-boulders.html` (offline map)
+
+Useful flags:
+
+- `--lang {en,fr,both}` — default `both`; skip a language if you don't need it.
+- `--no-html` — skip the ~10s IGN tile bundle. Handy while iterating on PDF
+  style; also the default when generating via the editor.
 
 ### Data model
 
@@ -46,7 +91,7 @@ lavender `#A096EF` for projects; logo in the headers).
 - `photo` — filename in `data/photos/`; the key linking a row to its image and GPS.
 - `no` — problem number on that boulder (sets the marker number and order).
 - `grade` — Fontainebleau `4`–`8C`, or `Project` for unclimbed lines.
-- `line` — the topo line from the annotator, as `x,y` points in **percent of the image**
+- `line` — the topo line from the editor, as `x,y` points in **percent of the image**
   (e.g. `36.9,75.7 65.2,58.6 …`), so it renders identically at any size.
 - **GPS is not in the sheet** — latitude/longitude/altitude/bearing/accuracy are read
   from each photo's EXIF at build time.
@@ -83,8 +128,6 @@ suffet-topo/
 │   ├── server.js
 │   ├── package.json
 │   └── public/            # vanilla-JS SPA served by server.js
-├── tools/
-│   └── boulder-line-annotator.html   # offline single-file fallback annotator
 ├── templates/
 │   └── refuge-du-suffet-boulders-template.csv  # starter CSV shape
 ├── assets/
