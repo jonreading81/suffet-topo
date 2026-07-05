@@ -125,9 +125,19 @@ async function saveAll() {
         setStatus(`Save failed: ${err.error || res.status}`);
         return;
     }
+    const { removed = [] } = await res.json().catch(() => ({}));
+    // Drop deleted photos from local state so subsequent uploads don't think
+    // the name is still taken.
+    if (removed.length) {
+        state.photos = state.photos.filter((p) => !removed.includes(p));
+    }
     setDirty(false);
-    setStatus('Saved.');
-    setTimeout(() => setStatus(''), 2000);
+    setStatus(
+        removed.length
+            ? `Saved · removed ${removed.length} orphan photo${removed.length === 1 ? '' : 's'}`
+            : 'Saved.',
+    );
+    setTimeout(() => setStatus(''), 2500);
 }
 
 // -----------------------------------------------------------------------------
