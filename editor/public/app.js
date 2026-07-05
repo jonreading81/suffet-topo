@@ -25,6 +25,12 @@ const state = {
     photos: [],
     selectedId: null,   // boulder _id
     drawingPid: null,   // problem _id currently being drawn
+    // The "next segment" preview is only shown after the user actively adds a
+    // point in this session. That way opening an existing line puts you in
+    // edit mode (drag handles freely) without a phantom curve chasing the
+    // cursor around; the first click on empty canvas flips this on.
+    addingPoints: false,
+    hoverPt: null,
     dirty: false,
 };
 
@@ -60,6 +66,7 @@ const els = {
     img: $('#photo'),
     overlay: $('#overlay'),
     canvasHint: $('#canvas-hint'),
+    finishDrawing: $('#finish-drawing'),
     addProblem: $('#add-problem'),
     problemList: $('#problem-list'),
     tpl: $('#problem-row-tpl'),
@@ -312,7 +319,10 @@ function buildProblemRow(p) {
     });
 
     node.querySelector('.draw').addEventListener('click', () => {
-        state.drawingPid = state.drawingPid === p._id ? null : p._id;
+        const wasDrawing = state.drawingPid === p._id;
+        state.drawingPid = wasDrawing ? null : p._id;
+        state.addingPoints = false;
+        state.hoverPt = null;
         updateDrawingIndicators();
         renderOverlay();
     });
@@ -338,13 +348,25 @@ function updateDrawingIndicators() {
     const drawing = state.drawingPid != null;
     els.canvasWrap.classList.toggle('drawing', drawing);
     els.canvasHint.hidden = !drawing;
+    els.finishDrawing.hidden = !drawing;
     if (drawing) {
         els.canvasHint.textContent =
-            'Click to add points · drag handles to nudge · double-click a handle to remove · Enter/Esc to finish';
+            'Click to add points · drag handles to nudge · double-click a handle to remove';
     }
     for (const row of els.problemList.querySelectorAll('.problem-row')) {
-        row.classList.toggle('drawing', row.dataset.pid === state.drawingPid);
+        const isActive = row.dataset.pid === state.drawingPid;
+        row.classList.toggle('drawing', isActive);
+        const drawBtn = row.querySelector('.draw');
+        if (drawBtn) drawBtn.textContent = isActive ? 'Editing…' : 'Draw line';
     }
+}
+
+function finishDrawing() {
+    state.drawingPid = null;
+    state.addingPoints = false;
+    state.hoverPt = null;
+    updateDrawingIndicators();
+    renderOverlay();
 }
 
 // -----------------------------------------------------------------------------
@@ -407,8 +429,16 @@ function drawLine(p, pts, active) {
     const color = colorFor(p.no);
     const project = (p.grade || '').toLowerCase() === 'project';
 
-    if (pts.length >= 2) {
-        const d = smoothPath(pts);
+    // While drawing this line — AND only after the user has explicitly
+    // committed to adding points — append the cursor position so the
+    // Catmull-Rom curve extends to it in real time. Opening an existing line
+    // starts in "edit only" mode so the curve doesn't chase the cursor while
+    // the user is trying to drag a handle.
+    const showPreview = active && state.addingPoints && state.hoverPt && pts.length >= 1;
+    const renderPts = showPreview ? [...pts, state.hoverPt] : pts;
+
+    if (renderPts.length >= 2) {
+        const d = smoothPath(renderPts);
 
         // White halo behind the coloured stroke — same visual language as the
         // PDF and annotator preview.
@@ -502,20 +532,47 @@ function svgPoint(evt) {
     return { x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) };
 }
 
+// A click is treated as "add a point" only if it doesn't land close to an
+// existing one. Threshold is in percent-space (the SVG's viewBox), and is
+// slightly larger than the handle radius (1.4) so clicks that just miss the
+// handle still count as "meant for that handle" — the user was going for the
+// grab, not adding a new point on top of it.
+const CLICK_ADD_THRESHOLD = 3;
+
 els.overlay.addEventListener('click', (evt) => {
     if (state.drawingPid == null) return;
     // Clicking on a handle already fires that handle's own listener; only
-    // treat clicks on empty overlay as "add point".
+    // treat clicks on empty overlay as candidates for "add point".
     if (evt.target !== els.overlay) return;
     const b = selectedBoulder();
     const p = b?.problems.find((x) => x._id === state.drawingPid);
     if (!p) return;
     const pt = svgPoint(evt);
     const pts = parseLine(p.line);
+    const nearExisting = pts.some(
+        (q) => Math.hypot(q.x - pt.x, q.y - pt.y) < CLICK_ADD_THRESHOLD,
+    );
+    if (nearExisting) return;
     pts.push(pt);
     p.line = stringifyLine(pts);
+    state.addingPoints = true; // arm the cursor preview from now on
+    state.hoverPt = pt;        // keep the preview snapped to the just-placed point
     renderOverlay();
     markDirty();
+});
+
+// Live "next segment" preview — track the cursor while drawing so the smooth
+// curve extends to it. Cleared on mouseleave so the curve doesn't stay stuck
+// pointing off-canvas.
+els.overlay.addEventListener('mousemove', (evt) => {
+    if (state.drawingPid == null) return;
+    state.hoverPt = svgPoint(evt);
+    renderOverlay();
+});
+els.overlay.addEventListener('mouseleave', () => {
+    if (state.drawingPid == null) return;
+    state.hoverPt = null;
+    renderOverlay();
 });
 
 function startDrag(evt, p, idx) {
@@ -549,11 +606,11 @@ function removePoint(p, idx) {
 window.addEventListener('keydown', (e) => {
     if (state.drawingPid == null) return;
     if (e.key === 'Enter' || e.key === 'Escape') {
-        state.drawingPid = null;
-        updateDrawingIndicators();
-        renderOverlay();
+        finishDrawing();
     }
 });
+
+els.finishDrawing.addEventListener('click', finishDrawing);
 
 // Re-render overlay once the photo loads (viewBox depends on nothing, but the
 // image needs to be sized so the SVG has real screen dimensions).

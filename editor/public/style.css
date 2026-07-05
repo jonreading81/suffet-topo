@@ -283,6 +283,27 @@ body {
     font-size: 12px;
     pointer-events: none;
 }
+.finish-drawing {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    padding: 8px 14px;
+    background: var(--blue);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    transition: background 0.1s ease;
+}
+.finish-drawing:hover {
+    background: #003a8a;
+}
+.finish-drawing[hidden] {
+    display: none;
+}
 
 /* -------------------- problems -------------------- */
 .problems-head {
