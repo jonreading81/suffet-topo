@@ -437,26 +437,31 @@ function drawLine(p, pts, active) {
     const showPreview = active && state.addingPoints && state.hoverPt && pts.length >= 1;
     const renderPts = showPreview ? [...pts, state.hoverPt] : pts;
 
+    // Everything below is decorative — we don't want the coloured line, its
+    // halo, or the number marker to swallow clicks that were meant for the
+    // canvas underneath (the hover-preview curve chases the cursor, so clicks
+    // land on it if it captures pointer events).
+    const noPointer = (el) => {
+        el.setAttribute('pointer-events', 'none');
+        return el;
+    };
+
     if (renderPts.length >= 2) {
         const d = smoothPath(renderPts);
 
         // White halo behind the coloured stroke — same visual language as the
         // PDF and annotator preview.
-        const halo = document.createElementNS(SVG_NS, 'path');
+        const halo = noPointer(document.createElementNS(SVG_NS, 'path'));
         halo.setAttribute('d', d);
         halo.setAttribute('fill', 'none');
         halo.setAttribute('stroke', '#ffffff');
-        halo.setAttribute('stroke-width', '1.6');
         halo.setAttribute('stroke-linecap', 'round');
         halo.setAttribute('stroke-linejoin', 'round');
         halo.setAttribute('vector-effect', 'non-scaling-stroke');
-        // vector-effect + a big literal width so the halo stays visible after
-        // the viewBox transform. We drop it back to something sensible via
-        // stroke-width in css-pixel units by using pathLength if needed later.
         halo.style.strokeWidth = '6px';
         els.overlay.append(halo);
 
-        const line = document.createElementNS(SVG_NS, 'path');
+        const line = noPointer(document.createElementNS(SVG_NS, 'path'));
         line.setAttribute('d', d);
         line.setAttribute('fill', 'none');
         line.setAttribute('stroke', color);
@@ -471,14 +476,14 @@ function drawLine(p, pts, active) {
     // Number marker at the first point (matches PDF / annotator).
     const first = pts[0];
     const r = 2.2;
-    const markerHalo = document.createElementNS(SVG_NS, 'circle');
+    const markerHalo = noPointer(document.createElementNS(SVG_NS, 'circle'));
     markerHalo.setAttribute('cx', first.x);
     markerHalo.setAttribute('cy', first.y);
     markerHalo.setAttribute('r', r + 0.6);
     markerHalo.setAttribute('fill', '#ffffff');
     els.overlay.append(markerHalo);
 
-    const marker = document.createElementNS(SVG_NS, 'circle');
+    const marker = noPointer(document.createElementNS(SVG_NS, 'circle'));
     marker.setAttribute('cx', first.x);
     marker.setAttribute('cy', first.y);
     marker.setAttribute('r', r);
@@ -487,7 +492,7 @@ function drawLine(p, pts, active) {
     marker.setAttribute('stroke-width', project ? 0.6 : 0);
     els.overlay.append(marker);
 
-    const label = document.createElementNS(SVG_NS, 'text');
+    const label = noPointer(document.createElementNS(SVG_NS, 'text'));
     label.setAttribute('x', first.x);
     label.setAttribute('y', first.y);
     label.setAttribute('text-anchor', 'middle');
@@ -690,39 +695,37 @@ els.uploadPhoto.addEventListener('click', () => els.uploadInput.click());
 els.uploadInput.addEventListener('change', async () => {
     const file = els.uploadInput.files?.[0];
     if (!file) return;
-    // Warn on collisions so the user doesn't silently clobber an existing
-    // photo their old CSV rows still reference.
-    const safe = file.name.replace(/[/\\]/g, '_').replace(/\s+/g, '_');
-    if (state.photos.includes(safe)) {
-        const ok = confirm(
-            `A file named "${safe}" already exists in data/photos/. Overwrite?`,
-        );
-        if (!ok) {
-            els.uploadInput.value = '';
-            return;
-        }
-    }
-    setStatus(`Uploading ${safe}…`);
+    const b = selectedBoulder();
+    // Server renames using the boulder name (slugified) — appends -2, -3 on
+    // collision so we don't silently clobber. HEIC files are converted to
+    // JPEG here so browsers can render them; that adds a couple of seconds.
+    const isHeic = /\.(heic|heif)$/i.test(file.name);
+    els.uploadPhoto.disabled = true;
+    setStatus(isHeic ? 'Converting HEIC & uploading…' : 'Uploading…');
     const fd = new FormData();
     fd.append('photo', file);
-    const res = await fetch('/api/photos', { method: 'POST', body: fd });
-    els.uploadInput.value = '';
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        setStatus(`Upload failed: ${err.error || res.status}`);
-        return;
+    fd.append('boulderName', b?.name || '');
+    try {
+        const res = await fetch('/api/photos', { method: 'POST', body: fd });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            setStatus(`Upload failed: ${err.error || res.status}`);
+            return;
+        }
+        const { filename } = await res.json();
+        if (!state.photos.includes(filename)) state.photos.push(filename);
+        if (b) {
+            b.photo = filename;
+            renderDetail();
+            renderSidebar();
+            markDirty();
+        }
+        setStatus(`Uploaded ${filename}`);
+        setTimeout(() => setStatus(''), 2500);
+    } finally {
+        els.uploadInput.value = '';
+        els.uploadPhoto.disabled = false;
     }
-    const { filename } = await res.json();
-    if (!state.photos.includes(filename)) state.photos.push(filename);
-    const b = selectedBoulder();
-    if (b) {
-        b.photo = filename;
-        renderDetail();
-        renderSidebar();
-        markDirty();
-    }
-    setStatus(`Uploaded ${filename}`);
-    setTimeout(() => setStatus(''), 2000);
 });
 
 // -----------------------------------------------------------------------------
