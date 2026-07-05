@@ -18,6 +18,13 @@ if len(sys.argv) != 3:
     sys.exit("usage: convert_heic.py <input> <output>")
 
 im = Image.open(sys.argv[1])
+# Preserve EXIF (GPS / altitude / bearing / accuracy) — generate.py reads it
+# at build time to place boulders on the map and set page headers. PIL drops
+# it by default; explicitly pass it through.
+exif = im.info.get("exif") or b""
 if im.mode != "RGB":
     im = im.convert("RGB")
-im.save(sys.argv[2], "JPEG", quality=90)
+save_kwargs = {"quality": 90}
+if exif:
+    save_kwargs["exif"] = exif
+im.save(sys.argv[2], "JPEG", **save_kwargs)
