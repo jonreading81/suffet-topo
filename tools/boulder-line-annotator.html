@@ -60,6 +60,15 @@ input[type=file]{display:none}
   <div class="right">
     <div class="field"><label>Boulder name (heading)</label><input id="bname" placeholder="e.g. The Prow"></div>
     <div class="field"><label>Photo filename (must match the file in your folder)</label><input id="pname" placeholder="e.g. the-prow.jpg"></div>
+    <details style="margin:6px 0;background:#f6f5ef;border:1px solid #d9d7cf;border-radius:8px;padding:8px">
+      <summary style="cursor:pointer;font-size:12px;font-weight:600;color:#33506e">Import from an existing boulders.csv</summary>
+      <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px">
+        <input type="file" id="csvfile" accept=".csv,text/csv" style="font-size:11px">
+        <textarea id="csvpaste" placeholder="…or paste boulders.csv contents here" style="width:100%;min-height:80px;border:1px solid #d9d7cf;border-radius:6px;padding:6px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px"></textarea>
+        <button id="csvimport" class="primary" style="width:100%">Import rows for this photo</button>
+        <div id="csvstatus" style="font-size:11px;color:#8a5a12;min-height:14px"></div>
+      </div>
+    </details>
     <div id="lines"></div>
     <button id="copyall" class="primary" disabled style="width:100%">Copy all rows for this boulder (CSV)</button>
     <textarea id="tsv" class="tsv" placeholder="Spreadsheet rows appear here after you copy…" readonly></textarea>
@@ -213,6 +222,78 @@ function copyRows(ls){
   navigator.clipboard&&navigator.clipboard.writeText(txt);
 }
 el('copyall').onclick=function(){ copyRows(lines); };
+
+// ---------- CSV import ----------
+// Parse a CSV string into an array-of-arrays. Handles quoted fields with
+// embedded commas, quotes ("" escape), and CRLF/LF newlines.
+function csvParse(text){
+  text = text.replace(/\r\n?/g,'\n');
+  var rows=[], cur='', row=[], inq=false;
+  for(var i=0;i<text.length;i++){
+    var ch=text[i];
+    if(inq){
+      if(ch==='"'){ if(text[i+1]==='"'){ cur+='"'; i++; } else { inq=false; } }
+      else { cur+=ch; }
+    } else {
+      if(ch===','){ row.push(cur); cur=''; }
+      else if(ch==='\n'){ row.push(cur); rows.push(row); row=[]; cur=''; }
+      else if(ch==='"' && cur===''){ inq=true; }
+      else { cur+=ch; }
+    }
+  }
+  if(cur!=='' || row.length){ row.push(cur); rows.push(row); }
+  return rows.filter(r=>r.some(v=>v!==''));
+}
+function parseLinePts(s){
+  return (s||'').trim().split(/\s+/).filter(Boolean).map(pt=>{
+    var xy=pt.split(','); return {x:parseFloat(xy[0])||0, y:parseFloat(xy[1])||0};
+  });
+}
+function importCsvText(text){
+  var rows=csvParse(text);
+  var st=el('csvstatus');
+  if(rows.length<2){ st.textContent='Empty or invalid CSV.'; return; }
+  var headers=rows[0].map(h=>h.trim().toLowerCase());
+  var idx={};
+  ['photo','boulder','no','problem','grade','notes','notes_fr','line'].forEach(k=>{ idx[k]=headers.indexOf(k); });
+  if(idx.photo<0 || idx.line<0){ st.textContent='CSV missing photo/line columns.'; return; }
+  var data=rows.slice(1).map(r=>({
+    photo: (r[idx.photo]||'').trim(),
+    boulder: idx.boulder>=0 ? (r[idx.boulder]||'').trim() : '',
+    no: idx.no>=0 ? parseInt(r[idx.no])||0 : 0,
+    problem: idx.problem>=0 ? (r[idx.problem]||'').trim() : '',
+    grade: idx.grade>=0 ? (r[idx.grade]||'').trim() : '',
+    notes: idx.notes>=0 ? (r[idx.notes]||'').trim() : '',
+    notes_fr: idx.notes_fr>=0 ? (r[idx.notes_fr]||'').trim() : '',
+    line: idx.line>=0 ? (r[idx.line]||'').trim() : ''
+  }));
+  var photo=el('pname').value.trim();
+  if(!photo){ st.textContent='Open the photo first, then import.'; return; }
+  var matches=data.filter(r=>r.photo===photo);
+  if(matches.length===0){ st.textContent='No rows found for '+photo+' (matched against '+data.length+' rows).'; return; }
+  el('bname').value = matches[0].boulder || el('bname').value;
+  matches.sort((a,b)=>a.no-b.no);
+  lines = matches.map((r,i)=>({
+    no: r.no || i+1,
+    name: r.problem,
+    grade: r.grade,
+    notes: r.notes,
+    notes_fr: r.notes_fr,
+    pts: parseLinePts(r.line)
+  }));
+  active = lines.length ? 0 : -1;
+  if(!lines.length) addLine();
+  render(); renderList();
+  ['newline','undo','delline','copyall'].forEach(id=>el(id).disabled=false);
+  st.textContent='Imported '+matches.length+' row(s) for '+photo+'. Edit lines as needed, then Copy.';
+}
+el('csvfile').addEventListener('change',function(e){
+  var f=e.target.files[0]; if(!f) return;
+  var reader=new FileReader();
+  reader.onload=function(){ el('csvpaste').value=reader.result; };
+  reader.readAsText(f);
+});
+el('csvimport').onclick=function(){ importCsvText(el('csvpaste').value); };
 
 // rebuild list whenever active/line count changes
 var _al=addLine; addLine=function(){ _al(); renderList(); };
