@@ -313,6 +313,9 @@ body {
     color: var(--mut);
     pointer-events: none;
 }
+.canvas-empty[hidden] {
+    display: none;
+}
 .canvas-wrap svg {
     position: absolute;
     inset: 0;
