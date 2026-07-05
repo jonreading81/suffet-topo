@@ -223,6 +223,26 @@ body {
     outline: 2px solid var(--blue);
     outline-offset: -1px;
 }
+.field input.invalid {
+    border-color: var(--danger);
+}
+.field input.invalid:focus {
+    outline-color: var(--danger);
+}
+.field-error {
+    font-size: 12px;
+    color: var(--danger);
+    margin-top: 2px;
+}
+.boulder-list li.dupe .title::after {
+    content: ' · duplicate name';
+    color: var(--danger);
+    font-weight: 500;
+}
+.btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
 .p-no {
     width: 60px;
 }
@@ -344,10 +364,13 @@ body {
 .problem-row {
     position: relative;
     background: #fff;
-    /* border colour is set from JS to match this problem's line colour */
-    border: 2px solid var(--line);
+    /* --accent is set from JS to this problem's line colour; card border and
+     * the active pencil button both reference it so they stay in sync. */
+    --accent: var(--line);
+    border: 2px solid var(--accent);
     border-radius: 8px;
     padding: 10px 12px;
+    transition: border-color 0.15s ease;
 }
 .problem-row .row-first {
     position: relative;
@@ -435,8 +458,8 @@ body {
 }
 .problem-row.drawing .row-btn.draw {
     color: #fff;
-    background: var(--blue);
-    border-color: var(--blue);
+    background: var(--accent);
+    border-color: var(--accent);
 }
 
 /* -------------------- buttons -------------------- */

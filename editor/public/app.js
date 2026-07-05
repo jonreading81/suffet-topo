@@ -46,6 +46,7 @@ const els = {
     body: document.body,
     status: $('#status'),
     save: $('#save'),
+    nameError: $('#f-name-error'),
     generate: $('#generate'),
     generateLog: $('#generate-log'),
     generateLogTitle: $('#generate-log-title'),
@@ -156,6 +157,48 @@ function colorFor(no) {
     return LINE_PALETTE[(no - 1) % LINE_PALETTE.length];
 }
 
+// Normalise boulder names for duplicate detection — trim + lowercase so
+// "Big Boulder" and "big boulder " count as the same name.
+function normalizedName(s) {
+    return (s || '').trim().toLowerCase();
+}
+
+// Set of normalised names that appear more than once across state.boulders.
+// Empty / whitespace-only names are ignored (they're separately unusable).
+function duplicateBoulderNames() {
+    const counts = new Map();
+    for (const b of state.boulders) {
+        const n = normalizedName(b.name);
+        if (!n) continue;
+        counts.set(n, (counts.get(n) || 0) + 1);
+    }
+    return new Set([...counts.entries()].filter(([, c]) => c > 1).map(([n]) => n));
+}
+
+// Update the name-input error state + the sidebar dupe flag + the Save
+// button's enabled state. Call after any change to a boulder name.
+function updateValidation() {
+    const dupes = duplicateBoulderNames();
+    const b = selectedBoulder();
+    const currentIsDupe = !!(b && dupes.has(normalizedName(b.name)));
+    els.name.classList.toggle('invalid', currentIsDupe);
+    els.nameError.hidden = !currentIsDupe;
+    els.nameError.textContent = currentIsDupe
+        ? 'Another boulder already uses this name.'
+        : '';
+
+    for (const li of els.list.querySelectorAll('li')) {
+        const bId = li.dataset.id;
+        const other = state.boulders.find((x) => x._id === bId);
+        li.classList.toggle('dupe', !!(other && dupes.has(normalizedName(other.name))));
+    }
+
+    els.save.disabled = dupes.size > 0;
+    els.save.title = dupes.size > 0
+        ? 'Fix duplicate boulder names before saving.'
+        : '';
+}
+
 // Line strings are stored as "x1,y1 x2,y2 …" where each value is a percent
 // (0–100) of the photo's width/height. Same format the annotator writes.
 function parseLine(s) {
@@ -184,6 +227,7 @@ function render() {
     renderSidebar();
     renderDetail();
     renderOverlay();
+    updateValidation();
 }
 
 function renderSidebar() {
@@ -281,9 +325,10 @@ function buildProblemRow(p) {
     const notes = node.querySelector('.p-notes');
     const notesFr = node.querySelector('.p-notes-fr');
 
-    // Colour the whole card's border to match this problem's line — visual
-    // hook so the card and its drawn line share the same identity.
-    node.style.borderColor = colorFor(p.no);
+    // Colour the whole card's border (and the active pencil button) to match
+    // this problem's line — visual hook so the card and its drawn line share
+    // the same identity. --accent is picked up by CSS.
+    node.style.setProperty('--accent', colorFor(p.no));
     nInput.value = p.no;
     nameInput.value = p.problem || '';
     for (const g of GRADES) {
@@ -298,7 +343,7 @@ function buildProblemRow(p) {
 
     nInput.addEventListener('input', () => {
         p.no = parseInt(nInput.value) || 0;
-        node.style.borderColor = colorFor(p.no);
+        node.style.setProperty('--accent', colorFor(p.no));
         renderOverlay();
         renderSidebar();
         markDirty();
@@ -650,6 +695,7 @@ els.name.addEventListener('input', () => {
     if (!b) return;
     b.name = els.name.value;
     renderSidebar();
+    updateValidation();
     markDirty();
 });
 
@@ -713,18 +759,37 @@ els.uploadPhoto.addEventListener('click', () => els.uploadInput.click());
 els.uploadInput.addEventListener('change', async () => {
     const file = els.uploadInput.files?.[0];
     if (!file) return;
+    els.uploadInput.value = ''; // reset early so re-picking the same file fires 'change'
+    await uploadPhoto(file, false);
+});
+
+async function uploadPhoto(file, overwrite) {
     const b = selectedBoulder();
-    // Server renames using the boulder name (slugified) — appends -2, -3 on
-    // collision so we don't silently clobber. HEIC files are converted to
-    // JPEG here so browsers can render them; that adds a couple of seconds.
     const isHeic = /\.(heic|heif)$/i.test(file.name);
     els.uploadPhoto.disabled = true;
     setStatus(isHeic ? 'Converting HEIC & uploading…' : 'Uploading…');
     const fd = new FormData();
     fd.append('photo', file);
     fd.append('boulderName', b?.name || '');
+    if (overwrite) fd.append('overwrite', 'true');
     try {
         const res = await fetch('/api/photos', { method: 'POST', body: fd });
+        // Server returns 409 when a photo with the target filename already
+        // exists — confirm with the user before overwriting.
+        if (res.status === 409) {
+            const err = await res.json().catch(() => ({}));
+            const ok = confirm(
+                `${err.error || 'This photo already exists.'}\n\nOverwrite it?`,
+            );
+            if (ok) {
+                els.uploadPhoto.disabled = false; // uploadPhoto re-disables it
+                await uploadPhoto(file, true);
+            } else {
+                setStatus('Upload cancelled');
+                setTimeout(() => setStatus(''), 2000);
+            }
+            return;
+        }
         if (!res.ok) {
             const err = await res.json().catch(() => ({}));
             setStatus(`Upload failed: ${err.error || res.status}`);
@@ -741,10 +806,9 @@ els.uploadInput.addEventListener('change', async () => {
         setStatus(`Uploaded ${filename}`);
         setTimeout(() => setStatus(''), 2500);
     } finally {
-        els.uploadInput.value = '';
         els.uploadPhoto.disabled = false;
     }
-});
+}
 
 // -----------------------------------------------------------------------------
 // Save + unload guard
