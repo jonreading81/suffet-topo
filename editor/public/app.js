@@ -59,11 +59,10 @@ const els = {
     empty: $('#empty'),
     detail: $('#detail'),
     name: $('#f-name'),
-    photo: $('#f-photo'),
-    pickPhoto: $('#pick-photo'),
     uploadPhoto: $('#upload-photo'),
     uploadInput: $('#upload-input'),
     canvasWrap: $('#canvas-wrap'),
+    canvasEmpty: $('#canvas-empty'),
     img: $('#photo'),
     overlay: $('#overlay'),
     canvasHint: $('#canvas-hint'),
@@ -302,9 +301,10 @@ function renderDetail() {
     els.detail.hidden = false;
 
     els.name.value = b.name || '';
-    els.photo.value = b.photo || '';
     els.img.src = b.photo ? `/photos/${encodeURIComponent(b.photo)}` : '';
     els.img.alt = b.photo || '';
+    els.canvasWrap.classList.toggle('has-photo', !!b.photo);
+    els.canvasEmpty.hidden = !!b.photo;
 
     // Rebuild the problems list. Simpler than surgical DOM updates and cheap
     // even for 30+ problems.
@@ -731,28 +731,6 @@ els.addProblem.addEventListener('click', () => {
 // -----------------------------------------------------------------------------
 // Photo picker + upload
 // -----------------------------------------------------------------------------
-
-els.pickPhoto.addEventListener('click', async () => {
-    const b = selectedBoulder();
-    if (!b) return;
-    if (!state.photos.length) {
-        alert('No photos in data/photos/. Upload one first.');
-        return;
-    }
-    const choice = prompt(
-        `Choose a photo:\n\n${state.photos.map((n, i) => `${i + 1}. ${n}`).join('\n')}\n\nEnter filename:`,
-        b.photo || state.photos[0],
-    );
-    if (!choice) return;
-    if (!state.photos.includes(choice)) {
-        alert(`"${choice}" not found in data/photos/.`);
-        return;
-    }
-    b.photo = choice;
-    renderDetail();
-    renderSidebar();
-    markDirty();
-});
 
 els.uploadPhoto.addEventListener('click', () => els.uploadInput.click());
 

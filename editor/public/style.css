@@ -173,15 +173,35 @@ body {
     gap: 8px;
     margin-bottom: 12px;
 }
-.detail-fields {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
-    gap: 10px;
-    min-width: 0;
-}
 .detail-actions {
     display: flex;
     justify-content: flex-end;
+}
+.canvas-upload {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: rgba(255, 255, 255, 0.92);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    font: inherit;
+    cursor: pointer;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+.canvas-upload:hover {
+    background: #fff;
+}
+.canvas-upload:disabled {
+    opacity: 0.7;
+    cursor: default;
+}
+.canvas-wrap.drawing .canvas-upload {
+    display: none; /* keep the drawing UI uncluttered */
 }
 
 .field {
@@ -259,15 +279,6 @@ body {
     width: 90px;
 }
 
-.photo-picker {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-}
-.photo-picker input {
-    flex: 1;
-    background: var(--card);
-}
 
 /* -------------------- canvas -------------------- */
 .canvas-wrap {
@@ -277,12 +288,30 @@ body {
     border-radius: 6px;
     overflow: hidden;
     margin-bottom: 18px;
+    min-height: 220px; /* empty state stays big enough for the upload button */
+}
+.canvas-wrap:not(.has-photo) {
+    background: var(--card);
 }
 .canvas-wrap img {
     display: block;
     width: 100%;
     height: auto;
     user-select: none;
+}
+.canvas-wrap:not(.has-photo) img {
+    display: none;
+}
+.canvas-empty {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 24px;
+    color: var(--mut);
+    pointer-events: none;
 }
 .canvas-wrap svg {
     position: absolute;

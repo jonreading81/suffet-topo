@@ -58,32 +58,25 @@
                 </div>
                 <div id="detail" class="detail" hidden>
                     <div class="detail-head">
-                        <div class="detail-fields">
-                            <label class="field">
-                                <span>Boulder name</span>
-                                <input id="f-name" type="text" placeholder="e.g. The Big Boulder" />
-                                <div id="f-name-error" class="field-error" hidden></div>
-                            </label>
-                            <label class="field">
-                                <span>Photo</span>
-                                <div class="photo-picker">
-                                    <input id="f-photo" type="text" readonly />
-                                    <button id="pick-photo" class="btn btn-ghost" type="button">
-                                        Choose…
-                                    </button>
-                                    <button id="upload-photo" class="btn btn-ghost" type="button">
-                                        Upload…
-                                    </button>
-                                    <input id="upload-input" type="file" accept="image/*,.heic,.heif" hidden />
-                                </div>
-                            </label>
-                        </div>
+                        <label class="field">
+                            <span>Boulder name</span>
+                            <input id="f-name" type="text" placeholder="e.g. The Big Boulder" />
+                            <div id="f-name-error" class="field-error" hidden></div>
+                        </label>
                     </div>
 
                     <div class="canvas-wrap" id="canvas-wrap">
                         <img id="photo" alt="" />
+                        <div id="canvas-empty" class="canvas-empty" hidden>
+                            No photo yet — click <strong>Upload photo</strong>
+                            in the top-right to add one.
+                        </div>
                         <svg id="overlay" xmlns="http://www.w3.org/2000/svg"></svg>
                         <div id="canvas-hint" class="canvas-hint" hidden></div>
+                        <button id="upload-photo" class="canvas-upload" type="button">
+                            <span aria-hidden="true">📷</span> Upload photo
+                        </button>
+                        <input id="upload-input" type="file" accept="image/*,.heic,.heif" hidden />
                         <div id="drawing-actions" class="drawing-actions" hidden>
                             <button
                                 id="clear-drawing"
