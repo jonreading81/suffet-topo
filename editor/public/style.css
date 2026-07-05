@@ -223,6 +223,15 @@ body {
     outline: 2px solid var(--blue);
     outline-offset: -1px;
 }
+/* Chrome/Firefox show a red validation glow on inputs that fail HTML
+ * constraints (e.g. p-no with min="1" while empty). That glow renders
+ * outside the input and reads as "the panel just gained a red border".
+ * We drive our own .invalid styling from JS, so suppress the browser
+ * default entirely. */
+.field input:invalid,
+.field select:invalid {
+    box-shadow: none;
+}
 .field input.invalid {
     border-color: var(--danger);
 }
@@ -365,12 +374,13 @@ body {
     position: relative;
     background: #fff;
     /* --accent is set from JS to this problem's line colour; card border and
-     * the active pencil button both reference it so they stay in sync. */
+     * the active pencil button both reference it so they stay in sync. No
+     * transition — interpolating between palette colours produced a muddy
+     * red-brown midway that read as "everything just went red". */
     --accent: var(--line);
     border: 2px solid var(--accent);
     border-radius: 8px;
     padding: 10px 12px;
-    transition: border-color 0.15s ease;
 }
 .problem-row .row-first {
     position: relative;
@@ -381,9 +391,6 @@ body {
 .problem-row .row-first .field-inline {
     flex: 1;
     min-width: 0;
-}
-.problem-row.drawing {
-    outline: 2px solid var(--orange);
 }
 .problem-row .row-top {
     display: flex;
