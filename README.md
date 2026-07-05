@@ -15,14 +15,19 @@ lavender `#A096EF` for projects; logo in the headers).
 ## How it works
 
 1. **Shoot** boulders with location services on (JPEG is smoother than HEIC).
-2. **Annotate** each photo in `tools/boulder-line-annotator.html` — a standalone,
-   offline page: open a photo, click each problem from base to top, set name + grade,
-   and copy the spreadsheet-ready rows. Nothing uploads; HEIC is decoded in-browser.
-3. **Record** the rows in a CSV (`templates/refuge-du-suffet-boulders-template.csv`
-   is the starting shape), columns:
-   `photo, boulder, no, problem, grade, notes, notes_fr, line`.
-   Edit the CSV in any plain-text editor (VS Code, TextEdit) — Numbers can also open
-   it, though pasting into an .xlsx-with-dropdown was flaky, which is why we're on CSV.
+2. **Edit** in the local web editor (`editor/`) — a small Node/Express app that reads
+   `data/boulders.csv`, lets you upload photos, browse and edit boulders + problems,
+   draw or re-draw problem lines on the photo, and writes back to the CSV:
+   ```bash
+   cd editor && npm install && npm start
+   # then open http://localhost:3000
+   ```
+   For quick one-off annotation without the server, `tools/boulder-line-annotator.html`
+   is still there — a fully offline single-file page that outputs CSV rows to paste in.
+3. **Record** the rows in the CSV (columns:
+   `photo, boulder, no, problem, grade, notes, notes_fr, line`) — the editor handles
+   this for you; you only touch the file directly if you prefer a plain-text editor.
+   `templates/refuge-du-suffet-boulders-template.csv` is the starter shape.
 4. **Generate** the outputs:
    ```bash
    python3 -m venv .venv
@@ -73,8 +78,13 @@ suffet-topo/
 │   ├── pdf.py             # print-ready PDF builder (EN + FR)
 │   ├── html.py            # standalone offline HTML builder (EN)
 │   └── data.py            # CSV / XLSX loading + boulder grouping
+├── editor/                # local Node/Express editor — browse/edit boulders +
+│   │                      # upload photos + draw lines, writes to data/boulders.csv
+│   ├── server.js
+│   ├── package.json
+│   └── public/            # vanilla-JS SPA served by server.js
 ├── tools/
-│   └── boulder-line-annotator.html   # draw problem lines, export TSV rows (offline)
+│   └── boulder-line-annotator.html   # offline single-file fallback annotator
 ├── templates/
 │   └── refuge-du-suffet-boulders-template.csv  # starter CSV shape
 ├── assets/

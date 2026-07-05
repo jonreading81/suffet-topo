@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width,initial-scale=1" />
+        <title>Suffet topo editor</title>
+        <link rel="stylesheet" href="/style.css" />
+    </head>
+    <body>
+        <header class="topbar">
+            <div class="brand">
+                <strong>Refuge du Suffet</strong>
+                <span>topo editor</span>
+            </div>
+            <div class="topbar-actions">
+                <span id="status" class="status"></span>
+                <button id="save" class="btn btn-primary" type="button">
+                    Save Boulders
+                </button>
+                <button id="generate" class="btn btn-primary" type="button">
+                    Generate PDFs
+                </button>
+            </div>
+        </header>
+
+        <div id="generate-log" class="generate-log" hidden>
+            <div class="generate-log-head">
+                <strong id="generate-log-title">Generate output</strong>
+                <button id="generate-log-close" class="btn btn-ghost" type="button">
+                    Close
+                </button>
+            </div>
+            <div id="generate-loading" class="generate-loading" hidden>
+                <div class="spinner"></div>
+                <div class="generate-loading-text">Generating PDFs…</div>
+                <div class="generate-loading-sub">
+                    Rendering photos, stitching IGN map tiles, building PDF.
+                </div>
+            </div>
+            <ul id="generate-files" class="generate-files"></ul>
+            <pre id="generate-log-body"></pre>
+        </div>
+
+        <main class="layout">
+            <aside class="sidebar">
+                <div class="sidebar-header">
+                    <h2>Boulders</h2>
+                    <button id="add-boulder" class="btn btn-ghost" type="button">
+                        + Add boulder
+                    </button>
+                </div>
+                <ol id="boulder-list" class="boulder-list"></ol>
+            </aside>
+
+            <section class="editor" id="editor">
+                <div id="empty" class="empty">
+                    Select a boulder from the left, or upload a photo to start.
+                </div>
+                <div id="detail" class="detail" hidden>
+                    <div class="detail-head">
+                        <div class="detail-fields">
+                            <label class="field">
+                                <span>Boulder name</span>
+                                <input id="f-name" type="text" placeholder="e.g. The Big Boulder" />
+                            </label>
+                            <label class="field">
+                                <span>Photo</span>
+                                <div class="photo-picker">
+                                    <input id="f-photo" type="text" readonly />
+                                    <button id="pick-photo" class="btn btn-ghost" type="button">
+                                        Choose…
+                                    </button>
+                                    <button id="upload-photo" class="btn btn-ghost" type="button">
+                                        Upload…
+                                    </button>
+                                    <input id="upload-input" type="file" accept="image/*" hidden />
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="canvas-wrap" id="canvas-wrap">
+                        <img id="photo" alt="" />
+                        <svg id="overlay" xmlns="http://www.w3.org/2000/svg"></svg>
+                        <div id="canvas-hint" class="canvas-hint" hidden></div>
+                    </div>
+
+                    <div class="problems">
+                        <div class="problems-head">
+                            <h3>Problems</h3>
+                            <button id="add-problem" class="btn btn-ghost" type="button">
+                                + Add problem
+                            </button>
+                        </div>
+                        <div id="problem-list" class="problem-list"></div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <template id="problem-row-tpl">
+            <div class="problem-row">
+                <div class="row-top">
+                    <span class="pin"></span>
+                    <label class="field field-inline">
+                        <span>No.</span>
+                        <input class="p-no" type="number" min="1" />
+                    </label>
+                    <label class="field field-inline flex1">
+                        <span>Name</span>
+                        <input class="p-name" type="text" />
+                    </label>
+                    <label class="field field-inline">
+                        <span>Grade</span>
+                        <select class="p-grade"></select>
+                    </label>
+                    <button class="btn btn-ghost draw" type="button">Draw line</button>
+                    <button class="btn btn-ghost clear-line" type="button">Clear</button>
+                    <button class="btn btn-danger delete" type="button">Delete</button>
+                </div>
+                <div class="row-notes">
+                    <label class="field">
+                        <span>Notes (EN)</span>
+                        <input class="p-notes" type="text" />
+                    </label>
+                    <label class="field">
+                        <span>Notes (FR)</span>
+                        <input class="p-notes-fr" type="text" />
+                    </label>
+                </div>
+            </div>
+        </template>
+
+        <script src="/app.js" type="module"></script>
+    </body>
+</html>

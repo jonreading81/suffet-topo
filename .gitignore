@@ -8,6 +8,10 @@ __pycache__/
 .venv/
 venv/
 
+# editor
+editor/node_modules/
+data/boulders.csv.tmp
+
 # os
 .DS_Store
 Thumbs.db
