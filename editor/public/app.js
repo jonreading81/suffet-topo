@@ -16,6 +16,10 @@ const GRADES = [
 // Same palette as topo/style.py (line_palette). Cycled by (no - 1) mod len.
 const LINE_PALETTE = ['#004AAD', '#E4572E', '#6AB0AB', '#A096EF', '#E0A21B'];
 
+// Metres above which the GPS fix is flagged as "verify on map" — matches
+// ACCURACY_FLAG_M in config.yaml on the Python side.
+const GPS_ACCURACY_FLAG_M = 15;
+
 // -----------------------------------------------------------------------------
 // State
 // -----------------------------------------------------------------------------
@@ -63,6 +67,7 @@ const els = {
     uploadInput: $('#upload-input'),
     canvasWrap: $('#canvas-wrap'),
     canvasEmpty: $('#canvas-empty'),
+    gpsWarning: $('#gps-warning'),
     img: $('#photo'),
     overlay: $('#overlay'),
     canvasHint: $('#canvas-hint'),
@@ -403,6 +408,16 @@ function renderDetail() {
     els.img.alt = b.photo || '';
     els.canvasWrap.classList.toggle('has-photo', !!b.photo);
     els.canvasEmpty.hidden = !!b.photo;
+
+    // Low-accuracy GPS warning banner. Same threshold and language as the
+    // PDF's warning pill on the boulder detail page.
+    const acc = b.gpsAccuracy;
+    const flagged = typeof acc === 'number' && acc >= GPS_ACCURACY_FLAG_M;
+    els.gpsWarning.hidden = !flagged;
+    if (flagged) {
+        els.gpsWarning.textContent =
+            `⚠ GPS ±${Math.round(acc)} m — low confidence, verify on map`;
+    }
 
     // Rebuild the problems list. Simpler than surgical DOM updates and cheap
     // even for 30+ problems.
@@ -901,10 +916,11 @@ async function uploadPhoto(file, overwrite) {
             setStatus(`Upload failed: ${err.error || res.status}`);
             return;
         }
-        const { filename } = await res.json();
+        const { filename, gpsAccuracy } = await res.json();
         if (!state.photos.includes(filename)) state.photos.push(filename);
         if (b) {
             b.photo = filename;
+            b.gpsAccuracy = gpsAccuracy ?? null;
             b._photoTs = Date.now(); // bust the image cache for this boulder
             renderDetail();
             renderSidebar();

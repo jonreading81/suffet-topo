@@ -325,6 +325,30 @@ body {
 .canvas-empty[hidden] {
     display: none;
 }
+.gps-warning {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    padding: 6px 10px;
+    background: #fbeecc; /* soft amber, matches PDF's WARN colour language */
+    color: #8a5a12;
+    border: 1px solid #e0a21b;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+    pointer-events: none;
+    text-align: center;
+}
+.gps-warning[hidden] {
+    display: none;
+}
+/* Hide while drawing so it doesn't collide with the canvas hint at the same
+ * bottom-left corner. The GPS check isn't useful mid-draw anyway. */
+.canvas-wrap.drawing .gps-warning {
+    display: none;
+}
 .canvas-wrap svg {
     position: absolute;
     inset: 0;
