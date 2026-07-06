@@ -115,7 +115,10 @@ def render_boulder_photo(photo_path, problems, max_px=1100):
         else:
             d.line(cu, fill=(255, 255, 255, 210), width=halo, joint="curve")
             d.line(cu, fill=col + (255,), width=lw, joint="curve")
-        x0, y0 = pts[0]
+        # Anchor the numbered marker at the bottom-most point of the line
+        # (image Y grows downward, so the largest Y is visually lowest).
+        # Climbing topos conventionally number at the start of the climb.
+        x0, y0 = max(pts, key=lambda pt: pt[1])
         if p["project"]:
             d.ellipse(
                 [x0 - r, y0 - r, x0 + r, y0 + r],

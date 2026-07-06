@@ -175,52 +175,84 @@ def stitch_map(
         fill=(255, 255, 255, 230),
     )
     d.text((sx + w + 7, sy - 9), refuge["name"], fill=teal + (255,), font=f2)
-    # boulder pins — numbered circles only. When two pins would overlap, we
-    # push them apart with a short repulsion pass and draw a leader from the
-    # true GPS spot to the offset pin so the number stays readable.
+    # Boulder pins — Google-Maps-style: the head sits above the anchor with
+    # a triangular tail that tapers to the exact GPS point. Heads repel each
+    # other to avoid overlap; the tail stretches so the tip still touches
+    # the true position no matter how far the head is pushed.
     if show_boulders:
-        rr = 15
-        min_dist = 2 * rr + 4
-        pins = []
+        head_r = 10
+        tail_len = 7              # default head-bottom to anchor gap
+        min_dist = 2 * head_r + 10  # 10px clear gap between adjacent heads
+        label_font = font(11)     # smaller than the refuge label (17)
+        anchors, heads = [], []
         for p in points:
             px, py = global_px(p["lat"], p["lon"], z)
-            pins.append([px - ox, py - oy])
-        anchors = [(x, y) for x, y in pins]
-        for _ in range(120):
+            ax, ay = px - ox, py - oy
+            anchors.append((ax, ay))
+            heads.append([ax, ay - head_r - tail_len])  # head starts above
+        # Enforce a minimum head→anchor distance so every pin keeps a
+        # visible tail — otherwise repulsion can shove a head onto its own
+        # anchor and it stops looking like a marker.
+        min_tail = head_r + tail_len
+        for _ in range(500):
             moved = False
-            for i in range(len(pins)):
-                for j in range(i + 1, len(pins)):
-                    dx = pins[j][0] - pins[i][0]
-                    dy = pins[j][1] - pins[i][1]
+            for i in range(len(heads)):
+                for j in range(i + 1, len(heads)):
+                    dx = heads[j][0] - heads[i][0]
+                    dy = heads[j][1] - heads[i][1]
                     dist = math.hypot(dx, dy)
                     if dist < min_dist:
                         if dist < 1e-6:
                             dx, dy, dist = 1.0, 0.0, 1.0
                         push = (min_dist - dist) / 2 + 0.5
                         ux, uy = dx / dist, dy / dist
-                        pins[i][0] -= ux * push
-                        pins[i][1] -= uy * push
-                        pins[j][0] += ux * push
-                        pins[j][1] += uy * push
+                        heads[i][0] -= ux * push
+                        heads[i][1] -= uy * push
+                        heads[j][0] += ux * push
+                        heads[j][1] += uy * push
                         moved = True
+            for i in range(len(heads)):
+                ax, ay = anchors[i]
+                dx = heads[i][0] - ax
+                dy = heads[i][1] - ay
+                dist = math.hypot(dx, dy)
+                if dist < min_tail:
+                    if dist < 1e-6:
+                        dx, dy, dist = 0.0, -1.0, 1.0  # default: push up
+                    ux, uy = dx / dist, dy / dist
+                    heads[i][0] = ax + ux * min_tail
+                    heads[i][1] = ay + uy * min_tail
+                    moved = True
             if not moved:
                 break
-        for i, p in enumerate(points):
-            ax, ay = anchors[i]
-            bx, by = pins[i]
-            if math.hypot(bx - ax, by - ay) > 1.5:
-                d.line([(ax, ay), (bx, by)], fill=(255, 255, 255, 230), width=2)
-                d.ellipse([ax - 3, ay - 3, ax + 3, ay + 3], fill=blue + (200,), outline=(255, 255, 255, 230), width=1)
-            label = p.get("label", str(i + 1))
-            # Fade the pin fill so the map underneath is still visible; keep
-            # the white outline and the number crisp so it stays readable.
-            d.ellipse([bx - rr, by - rr, bx + rr, by + rr], fill=blue + (200,), outline=(255, 255, 255, 230), width=3)
-            tb = d.textbbox((0, 0), label, font=f2)
+
+        fill_col = blue + (235,)
+        for (ax, ay), (headx, heady), p in zip(anchors, heads, points):
+            # Vector head → anchor, used to place the tail's base perpendicular
+            # to that direction on the head's rim.
+            vx, vy = ax - headx, ay - heady
+            vlen = math.hypot(vx, vy)
+            if vlen < 1e-6:
+                ux, uy = 0.0, 1.0
+            else:
+                ux, uy = vx / vlen, vy / vlen
+            rim_x = headx + ux * (head_r - 1)
+            rim_y = heady + uy * (head_r - 1)
+            base_w = head_r * 0.75
+            perp_x, perp_y = -uy, ux
+            base_l = (rim_x - perp_x * base_w / 2, rim_y - perp_y * base_w / 2)
+            base_r = (rim_x + perp_x * base_w / 2, rim_y + perp_y * base_w / 2)
+            tip = (ax, ay)
+            d.polygon([base_l, base_r, tip], fill=fill_col)
+            d.ellipse(
+                [headx - head_r, heady - head_r, headx + head_r, heady + head_r],
+                fill=fill_col,
+            )
+            label = p.get("label")
+            tb = d.textbbox((0, 0), label, font=label_font)
             d.text(
-                (bx - (tb[2] - tb[0]) / 2, by - (tb[3] - tb[1]) / 2 - tb[1]),
-                label,
-                fill=(255, 255, 255, 255),
-                font=f2,
+                (headx - (tb[2] - tb[0]) / 2, heady - (tb[3] - tb[1]) / 2 - tb[1]),
+                label, fill=(255, 255, 255, 255), font=label_font,
             )
     # scale bar (adaptive: bar target ~12% of canvas width, snapped to 1/2/5)
     mpp = 156543.03392 * math.cos(math.radians(all_pts[0][0])) / (2 ** z)

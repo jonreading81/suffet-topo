@@ -53,13 +53,32 @@ def hx(c):
     return tuple(int(c[i:i + 2], 16) for i in (0, 2, 4))
 
 
+_FONT_CANDIDATES = {
+    True: [
+        os.path.join(FONT_DIR, "DejaVuSans-Bold.ttf"),               # Debian/Ubuntu
+        "/System/Library/Fonts/Supplemental/Arial Bold.ttf",          # macOS ≥ Catalina
+        "/Library/Fonts/Arial Bold.ttf",                              # older macOS
+        "C:\\Windows\\Fonts\\arialbd.ttf",                            # Windows
+    ],
+    False: [
+        os.path.join(FONT_DIR, "DejaVuSans.ttf"),
+        "/System/Library/Fonts/Supplemental/Arial.ttf",
+        "/Library/Fonts/Arial.ttf",
+        "C:\\Windows\\Fonts\\arial.ttf",
+    ],
+}
+
+
 def font(size, bold=True):
-    """Load DejaVu at `size`; fall back to Pillow's default if unavailable."""
-    name = "DejaVuSans-Bold.ttf" if bold else "DejaVuSans.ttf"
-    try:
-        return ImageFont.truetype(os.path.join(FONT_DIR, name), size)
-    except Exception:
-        return ImageFont.load_default()
+    """Load a scalable TTF at `size`. Tries DejaVu (Linux) then Arial (macOS,
+    Windows). Falls back to Pillow's fixed bitmap font — legible but small —
+    if none of the candidates are installed."""
+    for path in _FONT_CANDIDATES[bold]:
+        try:
+            return ImageFont.truetype(path, size)
+        except Exception:
+            continue
+    return ImageFont.load_default()
 
 
 def labels(lang):

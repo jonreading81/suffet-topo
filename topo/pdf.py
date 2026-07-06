@@ -10,14 +10,97 @@ fr: 'Projet'). Beta / notes uses the `notes_fr` field in FR when present, else
 falls back to `notes`.
 """
 import os
+import re
 
-from PIL import Image
+from PIL import Image, ImageDraw
 from reportlab.lib.colors import HexColor
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.utils import ImageReader
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas as pdfcanvas
 
 from .style import ACCURACY_FLAG_M, ASSETS, BRAND, getting_there, labels
+
+
+CORNER_RADIUS_PT = 8
+
+
+# Aleo (serif) is the headings font on the Refuge du Suffet website; Roboto
+# is the body face. We pull both from Google Fonts (statics stored under
+# assets/fonts/) so the topo shares the brand's typography. If either file
+# is missing we fall back to Times/Helvetica so builds keep working.
+_FONT_DIR = os.path.join(ASSETS, "fonts")
+
+
+def _register(name, filename):
+    try:
+        pdfmetrics.registerFont(TTFont(name, os.path.join(_FONT_DIR, filename)))
+        return True
+    except Exception as e:
+        print(f"  Font {name} unavailable ({e})")
+        return False
+
+
+if _register("Aleo", "Aleo-Regular.ttf") and _register("Aleo-Bold", "Aleo-Bold.ttf"):
+    pdfmetrics.registerFontFamily("Aleo", normal="Aleo", bold="Aleo-Bold")
+    TITLE_FONT = "Aleo-Bold"
+else:
+    TITLE_FONT = "Times-Bold"
+
+if _register("Roboto", "Roboto-Regular.ttf") and _register("Roboto-Bold", "Roboto-Bold.ttf"):
+    pdfmetrics.registerFontFamily("Roboto", normal="Roboto", bold="Roboto-Bold")
+    BODY_FONT = "Roboto"
+    BODY_BOLD = "Roboto-Bold"
+else:
+    BODY_FONT = "Helvetica"
+    BODY_BOLD = "Helvetica-Bold"
+
+
+def _rounded_reader(path, display_w, display_h, radius_pt=CORNER_RADIUS_PT):
+    """Return an ImageReader whose alpha mask rounds the image's corners.
+    Radius is expressed in PDF points and rescaled to source pixels so the
+    curve visually matches the rounded border we draw at the display size.
+    """
+    im = Image.open(path).convert("RGBA")
+    px_w, px_h = im.size
+    r = max(1, int(round(radius_pt * min(px_w / display_w, px_h / display_h))))
+    mask = Image.new("L", (px_w, px_h), 0)
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, px_w - 1, px_h - 1), radius=r, fill=255)
+    im.putalpha(mask)
+    return ImageReader(im)
+
+
+def _grade_key(g):
+    """Sort key for a French bouldering grade like 5a, 6b+, 7a. Returns None
+    for anything that doesn't parse."""
+    m = re.match(r"^(\d+)([a-cA-C])?(\+)?", g.strip())
+    if not m:
+        return None
+    return (int(m.group(1)), (m.group(2) or "a").lower(), 1 if m.group(3) else 0)
+
+
+def _grade_range(problems, project_label):
+    """'6a', '5b+–6c+', 'Project', or '–' — a one-glance grade summary for a
+    boulder's problems. Projects are folded in only when there's no graded
+    problem to report; unparseable grades are skipped."""
+    graded = []
+    has_project = False
+    for p in problems:
+        if p.get("project"):
+            has_project = True
+            continue
+        g = (p.get("grade") or "").strip()
+        if not g or g == "–":
+            continue
+        k = _grade_key(g)
+        if k is not None:
+            graded.append((g, k))
+    if not graded:
+        return project_label if has_project else "–"
+    graded.sort(key=lambda x: x[1])
+    lo, hi = graded[0][0], graded[-1][0]
+    return lo if lo == hi else f"{lo} – {hi}"
 
 
 def build_pdf(boulders, out_path, lang="en"):
@@ -35,7 +118,7 @@ def build_pdf(boulders, out_path, lang="en"):
     AMBER = HexColor("#B5751A")
     WARN = HexColor("#FAEEDA")
     M = 42
-    SERIF = "Times-Bold"
+    SERIF = TITLE_FONT
     logo = ImageReader(os.path.join(ASSETS, "logo_white.png"))
 
     def header(t, s):
@@ -46,15 +129,15 @@ def build_pdf(boulders, out_path, lang="en"):
         c.setFillColor(HexColor("#ffffff"))
         c.setFont(SERIF, 21)
         c.drawString(M, H - 52, t)
-        c.setFont("Helvetica", 10.5)
+        c.setFont(BODY_FONT, 10.5)
         c.setFillColor(HexColor("#cfe0ea"))
         c.drawString(M, H - 72, s)
 
     def footer(p):
         c.setStrokeColor(LINE)
         c.setLineWidth(0.5)
-        c.line(M, 40, W - M, 40)
-        c.setFont("Helvetica", 8.5)
+        c.line(M, 44, W - M, 44)
+        c.setFont(BODY_FONT, 8.5)
         c.setFillColor(MUT)
         c.drawString(M, 30, L["footer"])
         c.drawRightString(W - M, 30, str(p))
@@ -69,10 +152,10 @@ def build_pdf(boulders, out_path, lang="en"):
         im = Image.open(path)
         iw, ih = im.size
         h = cw * ih / iw
-        c.drawImage(ImageReader(path), M, top_y - h, cw, h)
+        c.drawImage(_rounded_reader(path, cw, h), M, top_y - h, cw, h, mask="auto")
         c.setStrokeColor(LINE)
         c.setLineWidth(0.5)
-        c.rect(M, top_y - h, cw, h, fill=0, stroke=1)
+        c.roundRect(M, top_y - h, cw, h, CORNER_RADIUS_PT, fill=0, stroke=1)
         c.setFont("Helvetica-Oblique", 7.5)
         c.setFillColor(MUT)
         c.drawString(M, top_y - h - 12, caption)
@@ -102,7 +185,7 @@ def build_pdf(boulders, out_path, lang="en"):
             lines = []
             ln = ""
             for wd in words:
-                if c.stringWidth(ln + " " + wd, "Helvetica", 10) < content_w:
+                if c.stringWidth(ln + " " + wd, BODY_FONT, 10) < content_w:
                     ln = (ln + " " + wd).strip()
                 else:
                     if ln:
@@ -140,7 +223,7 @@ def build_pdf(boulders, out_path, lang="en"):
         # Prose
         py = hy - 30
         c.setFillColor(INK)
-        c.setFont("Helvetica", 10)
+        c.setFont(BODY_FONT, 10)
         for lines in wrapped:
             for ln in lines:
                 c.drawString(M + padx, py, ln)
@@ -155,10 +238,10 @@ def build_pdf(boulders, out_path, lang="en"):
     im = Image.open(close_path)
     iw, ih = im.size
     hm2 = cw * ih / iw
-    c.drawImage(ImageReader(close_path), M, mtop - hm2, cw, hm2)
+    c.drawImage(_rounded_reader(close_path, cw, hm2), M, mtop - hm2, cw, hm2, mask="auto")
     c.setStrokeColor(LINE)
     c.setLineWidth(0.5)
-    c.rect(M, mtop - hm2, cw, hm2, fill=0, stroke=1)
+    c.roundRect(M, mtop - hm2, cw, hm2, CORNER_RADIUS_PT, fill=0, stroke=1)
     c.setFont("Helvetica-Oblique", 7.5)
     c.setFillColor(MUT)
     c.drawString(M, mtop - hm2 - 12, L["map_caption"])
@@ -170,16 +253,17 @@ def build_pdf(boulders, out_path, lang="en"):
         c.setFillColor(INK)
         c.setFont(SERIF, 13)
         c.drawString(M, ly, L["boulders_heading"])
-        ly -= 6
+        ly -= 10
         c.setStrokeColor(BLUE)
         c.setLineWidth(1.2)
         c.line(M, ly, W - M, ly)
-        ly -= 22
-        row_h = 22
-        r = 9
+        ly -= 30
+        row_h = 24
+        r = 7
         # Auto-column so all boulders fit on this page. Compute how many rows
-        # fit above the footer at the single-column row height, then bump the
-        # column count until every boulder fits.
+        # fit above the footer at the row height, then bump the column count
+        # until every boulder fits. Fonts shrink at higher column counts so
+        # long names still clear the right-aligned grade.
         footer_top = 60
         avail_h = ly - footer_top
         rows_per_col = max(1, int(avail_h // row_h))
@@ -187,25 +271,32 @@ def build_pdf(boulders, out_path, lang="en"):
         rows_per_col = (len(boulders) + n_cols - 1) // n_cols
         col_gap = 20
         col_w = (cw - col_gap * (n_cols - 1)) / n_cols
-        name_font_size = 11 if n_cols == 1 else 10
+        name_font_size = 10 if n_cols == 1 else (9 if n_cols == 2 else 8)
+        grade_font_size = 8.5 if n_cols <= 2 else 7.5
+        ZEBRA = HexColor("#f2f4f8")
         for idx, b in enumerate(boulders):
             col = idx // rows_per_col
             row = idx % rows_per_col
             cx = M + col * (col_w + col_gap)
             cy = ly - row * row_h
+            if row % 2 == 1:
+                c.setFillColor(ZEBRA)
+                # Rect is centred on the content: content spans cy-6 (pin
+                # bottom) to cy+12 (pin top), midpoint cy+3, so the row_h
+                # box goes from cy+3-row_h/2 to cy+3+row_h/2.
+                c.rect(cx - 6, cy + 3 - row_h / 2, col_w + 12, row_h, fill=1, stroke=0)
             c.setFillColor(BLUE)
             c.circle(cx + r, cy + 3, r, fill=1, stroke=0)
             c.setFillColor(HexColor("#ffffff"))
-            c.setFont("Helvetica-Bold", 10)
+            c.setFont(BODY_BOLD, 7.5)
             c.drawCentredString(cx + r, cy, str(b["id"]))
             c.setFillColor(INK)
-            c.setFont("Helvetica-Bold", name_font_size)
+            c.setFont(BODY_BOLD, name_font_size)
             c.drawString(cx + 2 * r + 10, cy, b["name"])
-            n = len(b["problems"])
             c.setFillColor(MUT)
-            c.setFont("Helvetica", 9)
-            count_str = f"×{n}" if n_cols > 1 else f"{n} problem{'s' if n != 1 else ''}"
-            c.drawRightString(cx + col_w, cy, count_str)
+            c.setFont(BODY_FONT, grade_font_size)
+            grade_str = _grade_range(b["problems"], L["project_grade"])
+            c.drawRightString(cx + col_w, cy, grade_str)
     footer(2)
     c.showPage()
 
@@ -219,10 +310,10 @@ def build_pdf(boulders, out_path, lang="en"):
         ph = pw * ih / iw
         px = M
         py = H - 130 - ph
-        c.drawImage(ImageReader(b["_render"]), px, py, pw, ph)
+        c.drawImage(_rounded_reader(b["_render"], pw, ph), px, py, pw, ph, mask="auto")
         c.setStrokeColor(LINE)
         c.setLineWidth(0.5)
-        c.rect(px, py, pw, ph, fill=0, stroke=1)
+        c.roundRect(px, py, pw, ph, CORNER_RADIUS_PT, fill=0, stroke=1)
         rx = M + pw + 26
         rw = W - M - rx
         yr = H - 130
@@ -234,10 +325,10 @@ def build_pdf(boulders, out_path, lang="en"):
         c.drawString(rx + 14, yr - 20, L["location"])
 
         def meta(label, value, yy):
-            c.setFont("Helvetica", 8.8)
+            c.setFont(BODY_FONT, 8.8)
             c.setFillColor(MUT)
             c.drawString(rx + 14, yy, label)
-            c.setFont("Helvetica", 9.5)
+            c.setFont(BODY_FONT, 9.5)
             c.setFillColor(INK)
             c.drawRightString(rx + rw - 14, yy, value)
 
@@ -255,9 +346,9 @@ def build_pdf(boulders, out_path, lang="en"):
             # accuracy warning) don't overflow.
             avail = rw - 36
             fsize = 8.5
-            while c.stringWidth(msg, "Helvetica-Bold", fsize) > avail and fsize > 6:
+            while c.stringWidth(msg, BODY_BOLD, fsize) > avail and fsize > 6:
                 fsize -= 0.25
-            c.setFont("Helvetica-Bold", fsize)
+            c.setFont(BODY_BOLD, fsize)
             c.drawString(rx + 22, yr - mh + 20, msg)
 
         yp = yr - mh - 26
@@ -268,48 +359,57 @@ def build_pdf(boulders, out_path, lang="en"):
         c.setStrokeColor(BLUE)
         c.setLineWidth(1.2)
         c.line(rx, yp, rx + rw, yp)
-        yp -= 20
+        yp -= 22
         for p in b["problems"]:
-            r = 8
+            r = 7
             col = HexColor(p["color"])
+            # Align circle centre with the name's cap-height mid (Helvetica-
+            # Bold 10.5pt) so the number, name, and grade share one baseline.
+            circle_cy = yp + 3.8
             if p["project"]:
                 c.setFillColor(HexColor("#ffffff"))
                 c.setStrokeColor(col)
                 c.setLineWidth(2)
-                c.circle(rx + r, yp + 3, r, fill=1, stroke=1)
+                c.circle(rx + r, circle_cy, r, fill=1, stroke=1)
                 c.setFillColor(col)
             else:
                 c.setFillColor(col)
-                c.circle(rx + r, yp + 3, r, fill=1, stroke=0)
+                c.circle(rx + r, circle_cy, r, fill=1, stroke=0)
                 c.setFillColor(HexColor("#ffffff"))
-            c.setFont("Helvetica-Bold", 9)
-            c.drawCentredString(rx + r, yp, str(p["no"]))
+            c.setFont(BODY_BOLD, 8)
+            # 8pt Helvetica-Bold cap height ≈ 5.75; half = 2.87.
+            c.drawCentredString(rx + r, circle_cy - 2.87, str(p["no"]))
             c.setFillColor(INK)
-            c.setFont("Helvetica-Bold", 10.5)
+            c.setFont(BODY_BOLD, 10.5)
             c.drawString(rx + 24, yp, p["name"])
             c.setFillColor(LAV if p["project"] else BLUE)
-            c.setFont("Helvetica-Bold", 10)
+            c.setFont(BODY_BOLD, 10)
             grade = L["project_grade"] if p["project"] else p["grade"]
             c.drawRightString(rx + rw, yp, grade)
             c.setFillColor(MUT)
-            c.setFont("Helvetica", 9)
+            c.setFont(BODY_FONT, 9)
             beta = p["notes_fr"] if lang == "fr" and p.get("notes_fr") else p["notes"]
-            ln = ""
-            ly = yp - 15
-            for wd in (beta or "").split():
-                if c.stringWidth(ln + " " + wd, "Helvetica", 9) < rw - 24:
-                    ln = (ln + " " + wd).strip()
-                else:
-                    c.drawString(rx + 24, ly, ln)
-                    ly -= 13
-                    ln = wd
-            c.drawString(rx + 24, ly, ln)
-            # 14pt above the divider, 22pt below (more visual room before the
-            # next problem's title starts).
-            yp = ly - 36
+            if beta:
+                ly = yp - 15
+                ln = ""
+                for wd in beta.split():
+                    if c.stringWidth(ln + " " + wd, BODY_FONT, 9) < rw - 24:
+                        ln = (ln + " " + wd).strip()
+                    else:
+                        c.drawString(rx + 24, ly, ln)
+                        ly -= 13
+                        ln = wd
+                c.drawString(rx + 24, ly, ln)
+                last_baseline = ly
+            else:
+                last_baseline = yp
+            # Cell is centred on its content: divider sits 12pt below the last
+            # drawn baseline (title or last note), next title 18pt below the
+            # divider — so top and bottom margins are equal.
             c.setStrokeColor(LINE)
             c.setLineWidth(0.5)
-            c.line(rx, yp + 22, rx + rw, yp + 22)
+            c.line(rx, last_baseline - 16, rx + rw, last_baseline - 16)
+            yp = last_baseline - 38
         footer(pg)
         c.showPage()
         pg += 1
