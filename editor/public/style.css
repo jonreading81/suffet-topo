@@ -452,10 +452,27 @@ body {
     border: 2px solid var(--accent);
     border-radius: 8px;
     padding: 10px 12px;
-    cursor: grab;
 }
 .problem-row.dragging {
     opacity: 0;
+}
+.problem-row .p-drag-handle {
+    background: transparent;
+    border: none;
+    color: var(--mut);
+    font-size: 16px;
+    line-height: 1;
+    letter-spacing: -2px;
+    padding: 4px 6px;
+    margin-right: 2px;
+    cursor: grab;
+    user-select: none;
+    flex: 0 0 auto;
+}
+.problem-row .p-drag-handle:hover {
+    color: var(--ink);
+}
+.problem-row .p-drag-handle:active {
     cursor: grabbing;
 }
 .problem-row .row-first {

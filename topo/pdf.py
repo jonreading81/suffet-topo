@@ -130,17 +130,17 @@ def build_pdf(boulders, out_path, lang="en", clusters=None):
         if number is not None:
             # Brand-blue circle with white ring + white digit, sitting on
             # the title's cap-height midline just left of the name.
-            circ_r = 10
+            circ_r = 12
             circ_cx = M + circ_r
             circ_cy = H - 52 + 6
             c.setFillColor(BLUE)
             c.setStrokeColor(HexColor("#ffffff"))
-            c.setLineWidth(1.2)
+            c.setLineWidth(1.4)
             c.circle(circ_cx, circ_cy, circ_r, fill=1, stroke=1)
             c.setFillColor(HexColor("#ffffff"))
-            c.setFont(BODY_BOLD, 10)
+            c.setFont(BODY_BOLD, 12)
             # Baseline offset so digit sits on circle's optical centre.
-            c.drawCentredString(circ_cx, circ_cy - 3.6, str(number))
+            c.drawCentredString(circ_cx, circ_cy - 4.3, str(number))
             title_x = M + 2 * circ_r + 10
         c.setFillColor(HexColor("#ffffff"))
         c.setFont(SERIF, 21)

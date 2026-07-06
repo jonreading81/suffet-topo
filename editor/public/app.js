@@ -448,12 +448,30 @@ function renderDetail() {
 function buildProblemRow(p) {
     const node = els.tpl.content.firstElementChild.cloneNode(true);
     node.dataset.pid = p._id;
-    node.draggable = true;
+    // The whole row is only draggable while the dedicated handle is grabbed —
+    // that way clicking a text input, button or the row background never
+    // kicks off a drag.
+    node.draggable = false;
 
-    // Drag & drop reordering within the problems list — live shuffle under
-    // the cursor. State catches up on drop, and numbers auto-renumber 1..N
-    // in the new order (both editor server and Python PDF builder sort by
-    // `no`, so reorder-without-renumber would revert on reload).
+    // Drag handle — sits at the front of `.row-first`. It toggles the row's
+    // draggable attribute on mousedown / dragend.
+    const handle = document.createElement('button');
+    handle.type = 'button';
+    handle.className = 'p-drag-handle';
+    handle.setAttribute('aria-label', 'Drag to reorder');
+    handle.setAttribute('title', 'Drag to reorder');
+    handle.textContent = '⋮⋮';
+    handle.addEventListener('mousedown', () => {
+        node.draggable = true;
+    });
+    // Clicking the handle without dragging still needs a reset so a
+    // subsequent click on any other row control doesn't start a drag.
+    handle.addEventListener('mouseup', () => {
+        node.draggable = false;
+    });
+    const rowFirst = node.querySelector('.row-first');
+    rowFirst.prepend(handle);
+
     node.addEventListener('dragstart', (e) => {
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', p._id);
@@ -461,6 +479,7 @@ function buildProblemRow(p) {
     });
     node.addEventListener('dragend', () => {
         node.classList.remove('dragging');
+        node.draggable = false;
         commitProblemOrderFromDom();
     });
     node.addEventListener('dragover', (e) => {
@@ -472,12 +491,6 @@ function buildProblemRow(p) {
         const before = e.clientY < rect.top + rect.height / 2;
         els.problemList.insertBefore(dragging, before ? node : node.nextSibling);
     });
-
-    // Text inputs bubble their mousedown up to the row and would otherwise
-    // start a drag when clicking inside them — cancel that.
-    for (const el of node.querySelectorAll('input, select, button')) {
-        el.addEventListener('mousedown', (e) => e.stopPropagation());
-    }
 
     const nInput = node.querySelector('.p-no');
     const nameInput = node.querySelector('.p-name');
