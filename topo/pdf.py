@@ -177,20 +177,35 @@ def build_pdf(boulders, out_path, lang="en"):
         ly -= 22
         row_h = 22
         r = 9
-        for b in boulders:
+        # Auto-column so all boulders fit on this page. Compute how many rows
+        # fit above the footer at the single-column row height, then bump the
+        # column count until every boulder fits.
+        footer_top = 60
+        avail_h = ly - footer_top
+        rows_per_col = max(1, int(avail_h // row_h))
+        n_cols = max(1, (len(boulders) + rows_per_col - 1) // rows_per_col)
+        rows_per_col = (len(boulders) + n_cols - 1) // n_cols
+        col_gap = 20
+        col_w = (cw - col_gap * (n_cols - 1)) / n_cols
+        name_font_size = 11 if n_cols == 1 else 10
+        for idx, b in enumerate(boulders):
+            col = idx // rows_per_col
+            row = idx % rows_per_col
+            cx = M + col * (col_w + col_gap)
+            cy = ly - row * row_h
             c.setFillColor(BLUE)
-            c.circle(M + r, ly + 3, r, fill=1, stroke=0)
+            c.circle(cx + r, cy + 3, r, fill=1, stroke=0)
             c.setFillColor(HexColor("#ffffff"))
             c.setFont("Helvetica-Bold", 10)
-            c.drawCentredString(M + r, ly, str(b["id"]))
+            c.drawCentredString(cx + r, cy, str(b["id"]))
             c.setFillColor(INK)
-            c.setFont("Helvetica-Bold", 11)
-            c.drawString(M + 2 * r + 10, ly, b["name"])
+            c.setFont("Helvetica-Bold", name_font_size)
+            c.drawString(cx + 2 * r + 10, cy, b["name"])
             n = len(b["problems"])
             c.setFillColor(MUT)
             c.setFont("Helvetica", 9)
-            c.drawRightString(W - M, ly, f"{n} problem{'s' if n != 1 else ''}")
-            ly -= row_h
+            count_str = f"×{n}" if n_cols > 1 else f"{n} problem{'s' if n != 1 else ''}"
+            c.drawRightString(cx + col_w, cy, count_str)
     footer(2)
     c.showPage()
 

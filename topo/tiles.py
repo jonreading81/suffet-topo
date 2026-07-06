@@ -175,13 +175,42 @@ def stitch_map(
         fill=(255, 255, 255, 230),
     )
     d.text((sx + w + 7, sy - 9), refuge["name"], fill=teal + (255,), font=f2)
-    # boulder pins
+    # boulder pins — numbered circles only. When two pins would overlap, we
+    # push them apart with a short repulsion pass and draw a leader from the
+    # true GPS spot to the offset pin so the number stays readable.
     if show_boulders:
+        rr = 15
+        min_dist = 2 * rr + 4
+        pins = []
+        for p in points:
+            px, py = global_px(p["lat"], p["lon"], z)
+            pins.append([px - ox, py - oy])
+        anchors = [(x, y) for x, y in pins]
+        for _ in range(120):
+            moved = False
+            for i in range(len(pins)):
+                for j in range(i + 1, len(pins)):
+                    dx = pins[j][0] - pins[i][0]
+                    dy = pins[j][1] - pins[i][1]
+                    dist = math.hypot(dx, dy)
+                    if dist < min_dist:
+                        if dist < 1e-6:
+                            dx, dy, dist = 1.0, 0.0, 1.0
+                        push = (min_dist - dist) / 2 + 0.5
+                        ux, uy = dx / dist, dy / dist
+                        pins[i][0] -= ux * push
+                        pins[i][1] -= uy * push
+                        pins[j][0] += ux * push
+                        pins[j][1] += uy * push
+                        moved = True
+            if not moved:
+                break
         for i, p in enumerate(points):
-            bx, by = global_px(p["lat"], p["lon"], z)
-            bx -= ox
-            by -= oy
-            rr = 15
+            ax, ay = anchors[i]
+            bx, by = pins[i]
+            if math.hypot(bx - ax, by - ay) > 1.5:
+                d.line([(ax, ay), (bx, by)], fill=(255, 255, 255, 230), width=2)
+                d.ellipse([ax - 3, ay - 3, ax + 3, ay + 3], fill=blue + (255,), outline=(255, 255, 255, 255), width=1)
             label = p.get("label", str(i + 1))
             d.ellipse([bx - rr, by - rr, bx + rr, by + rr], fill=blue + (255,), outline=(255, 255, 255, 255), width=3)
             tb = d.textbbox((0, 0), label, font=f2)
@@ -191,14 +220,6 @@ def stitch_map(
                 fill=(255, 255, 255, 255),
                 font=f2,
             )
-            nm = p.get("name", "")
-            if nm:
-                lb = d.textbbox((0, 0), nm, font=f2)
-                d.rectangle(
-                    [bx + rr + 2, by - 11, bx + rr + (lb[2] - lb[0]) + 10, by + 13],
-                    fill=(255, 255, 255, 220),
-                )
-                d.text((bx + rr + 6, by - 9), nm, fill=blue + (255,), font=f2)
     # scale bar (adaptive: bar target ~12% of canvas width, snapped to 1/2/5)
     mpp = 156543.03392 * math.cos(math.radians(all_pts[0][0])) / (2 ** z)
     bar_m = _nice_scale_bar_m(Wc * 0.12 * mpp)
