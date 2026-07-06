@@ -281,6 +281,19 @@ function renderSidebar() {
         const title = document.createElement('div');
         title.className = 'title';
         title.textContent = b.name || '(unnamed)';
+        // Flag boulders with no GPS or a loose fix so they stand out in the
+        // list without having to click into each one.
+        const noGps = b.hasGps === false;
+        const looseGps = typeof b.gpsAccuracy === 'number' && b.gpsAccuracy >= GPS_ACCURACY_FLAG_M;
+        if (b.photo && (noGps || looseGps)) {
+            const warn = document.createElement('span');
+            warn.className = 'row-warn';
+            warn.textContent = '⚠';
+            warn.title = noGps
+                ? 'No GPS data in photo'
+                : `GPS ±${Math.round(b.gpsAccuracy)} m — low confidence`;
+            title.append(' ', warn);
+        }
         const sub = document.createElement('div');
         sub.className = 'sub';
         const n = b.problems.length;
@@ -409,12 +422,17 @@ function renderDetail() {
     els.canvasWrap.classList.toggle('has-photo', !!b.photo);
     els.canvasEmpty.hidden = !!b.photo;
 
-    // Low-accuracy GPS warning banner. Same threshold and language as the
-    // PDF's warning pill on the boulder detail page.
+    // GPS warning banner. Two flavours share the pill:
+    //   * no GPS in the photo at all — the boulder can't be placed on the map
+    //   * a fix exists but the reported accuracy is loose (>= flag threshold)
+    // Same visual as the PDF's warning pill on the boulder detail page.
     const acc = b.gpsAccuracy;
+    const noGps = b.hasGps === false;
     const flagged = typeof acc === 'number' && acc >= GPS_ACCURACY_FLAG_M;
-    els.gpsWarning.hidden = !flagged;
-    if (flagged) {
+    els.gpsWarning.hidden = !(noGps || flagged);
+    if (noGps) {
+        els.gpsWarning.textContent = '⚠ No GPS data in photo — add coordinates or replace the image';
+    } else if (flagged) {
         els.gpsWarning.textContent =
             `⚠ GPS ±${Math.round(acc)} m — low confidence, verify on map`;
     }
@@ -916,11 +934,12 @@ async function uploadPhoto(file, overwrite) {
             setStatus(`Upload failed: ${err.error || res.status}`);
             return;
         }
-        const { filename, gpsAccuracy } = await res.json();
+        const { filename, gpsAccuracy, hasGps } = await res.json();
         if (!state.photos.includes(filename)) state.photos.push(filename);
         if (b) {
             b.photo = filename;
             b.gpsAccuracy = gpsAccuracy ?? null;
+            b.hasGps = hasGps !== false;
             b._photoTs = Date.now(); // bust the image cache for this boulder
             renderDetail();
             renderSidebar();

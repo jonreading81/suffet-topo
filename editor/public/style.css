@@ -163,6 +163,12 @@ body {
     color: var(--mut);
     font-size: 12px;
 }
+.boulder-list li .row-warn {
+    color: #eab308;
+    font-size: 12px;
+    margin-left: 2px;
+    cursor: help;
+}
 
 /* -------------------- editor -------------------- */
 .editor {

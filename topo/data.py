@@ -46,7 +46,7 @@ def build_boulders(rows, photos_dir):
         groups[name].append(row)
 
     boulders = []
-    for i, name in enumerate(order, 1):
+    for name in order:
         grp = groups[name]
         photo_file = str(grp[0].get("photo") or "").strip()
         photo_path = os.path.join(photos_dir, photo_file)
@@ -82,7 +82,6 @@ def build_boulders(rows, photos_dir):
                 print("  EXIF fail", photo_file, e)
 
         b = {
-            "id": i,
             "name": name,
             "photo": photo_file,
             "photo_path": photo_path,
@@ -100,10 +99,23 @@ def build_boulders(rows, photos_dir):
             b["bearing_str"] = (
                 f"{gps['bearing']:.0f}°" if gps["bearing"] is not None else "–"
             )
+            b["_has_gps"] = True
         else:
             print(f"  WARNING: no GPS for boulder '{name}' (photo: {photo_file})")
             b.update(lat=REFUGE["lat"], lon=REFUGE["lon"], alt=None, bearing=None, acc=None)
             b["alt_str"] = "–"
             b["bearing_str"] = "–"
+            b["_has_gps"] = False
         boulders.append(b)
-    return boulders
+
+    # Number boulders west → east (ascending longitude) so they follow the
+    # river in that order. Boulders without real GPS fall back to CSV order
+    # at the tail — we can't place them along the river without coordinates.
+    with_gps = [b for b in boulders if b["_has_gps"]]
+    without_gps = [b for b in boulders if not b["_has_gps"]]
+    with_gps.sort(key=lambda b: b["lon"])
+    ordered = with_gps + without_gps
+    for i, b in enumerate(ordered, 1):
+        b["id"] = i
+        del b["_has_gps"]
+    return ordered
