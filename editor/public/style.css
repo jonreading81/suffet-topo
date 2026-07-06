@@ -100,8 +100,17 @@ body {
     gap: 10px;
     padding: 10px;
     border-radius: 8px;
-    cursor: pointer;
+    cursor: grab;
     align-items: center;
+    /* Space the drop indicator borders sit in without shifting content. */
+    border-top: 2px solid transparent;
+    border-bottom: 2px solid transparent;
+}
+.boulder-list li.dragging {
+    /* Item hides during drag so the rest of the list shuffles cleanly around
+     * where the cursor is; the browser's own drag ghost stays visible. */
+    opacity: 0;
+    cursor: grabbing;
 }
 .row-delete {
     width: 28px;
@@ -413,6 +422,11 @@ body {
     border: 2px solid var(--accent);
     border-radius: 8px;
     padding: 10px 12px;
+    cursor: grab;
+}
+.problem-row.dragging {
+    opacity: 0;
+    cursor: grabbing;
 }
 .problem-row .row-first {
     position: relative;

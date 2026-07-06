@@ -262,10 +262,14 @@ function renderSidebar() {
         const li = document.createElement('li');
         if (b._id === state.selectedId) li.classList.add('active');
         li.dataset.id = b._id;
+        li.draggable = true;
 
         const thumb = document.createElement('div');
         thumb.className = 'thumb';
-        if (b.photo) thumb.style.backgroundImage = `url('/photos/${encodeURIComponent(b.photo)}')`;
+        if (b.photo) {
+            const bust = b._photoTs ? `?v=${b._photoTs}` : '';
+            thumb.style.backgroundImage = `url('/photos/${encodeURIComponent(b.photo)}${bust}')`;
+        }
 
         const meta = document.createElement('div');
         meta.className = 'meta';
@@ -288,6 +292,9 @@ function renderSidebar() {
             e.stopPropagation();
             deleteBoulder(b);
         });
+        // A mousedown on the delete button shouldn't kick off a drag on the
+        // parent li — cancel drag initiation for this button specifically.
+        del.addEventListener('mousedown', (e) => e.stopPropagation());
 
         li.append(thumb, meta, del);
         li.addEventListener('click', () => {
@@ -295,8 +302,68 @@ function renderSidebar() {
             state.drawingPid = null;
             render();
         });
+
+        // Drag & drop reordering — live shuffle as the pointer moves, so the
+        // list literally reorders under the cursor instead of just showing an
+        // insertion line. State catches up on drop.
+        li.addEventListener('dragstart', (e) => {
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', b._id);
+            // The dragged element itself needs a paint frame before we hide
+            // it, otherwise the drag ghost is invisible.
+            requestAnimationFrame(() => li.classList.add('dragging'));
+        });
+        li.addEventListener('dragend', () => {
+            li.classList.remove('dragging');
+            commitSidebarOrderFromDom();
+        });
+        li.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            const dragging = els.list.querySelector('.dragging');
+            if (!dragging || dragging === li) return;
+            const rect = li.getBoundingClientRect();
+            const before = e.clientY < rect.top + rect.height / 2;
+            els.list.insertBefore(dragging, before ? li : li.nextSibling);
+        });
+
         els.list.append(li);
     }
+}
+
+// Read the sidebar list's current DOM order back into state.boulders. Called
+// on dragend so the live-shuffled order becomes the persisted order.
+function commitSidebarOrderFromDom() {
+    const domOrder = [...els.list.querySelectorAll('li')].map((el) => el.dataset.id);
+    const byId = new Map(state.boulders.map((b) => [b._id, b]));
+    const next = domOrder.map((id) => byId.get(id)).filter(Boolean);
+    // Only touch state if the order actually changed.
+    const same = next.length === state.boulders.length &&
+        next.every((b, i) => b === state.boulders[i]);
+    if (same) return;
+    state.boulders = next;
+    markDirty();
+}
+
+// Read the problem list's current DOM order back into state and renumber
+// 1..N so the order sticks through save/reload.
+function commitProblemOrderFromDom() {
+    const b = selectedBoulder();
+    if (!b) return;
+    const domOrder = [...els.problemList.querySelectorAll('.problem-row')].map(
+        (el) => el.dataset.pid,
+    );
+    const byId = new Map(b.problems.map((p) => [p._id, p]));
+    const next = domOrder.map((id) => byId.get(id)).filter(Boolean);
+    const same = next.length === b.problems.length &&
+        next.every((p, i) => p === b.problems[i]);
+    if (same) return;
+    b.problems = next;
+    b.problems.forEach((p, i) => { p.no = i + 1; });
+    renderDetail();
+    renderOverlay();
+    renderSidebar();
+    markDirty();
 }
 
 function deleteBoulder(b) {
@@ -328,7 +395,11 @@ function renderDetail() {
     els.detail.hidden = false;
 
     els.name.value = b.name || '';
-    els.img.src = b.photo ? `/photos/${encodeURIComponent(b.photo)}` : '';
+    // Cache-bust the URL after uploads so the browser refetches even when the
+    // filename is unchanged (which is the common case — filename is a slug of
+    // the boulder name, so a replacement upload hits the same URL).
+    const bust = b._photoTs ? `?v=${b._photoTs}` : '';
+    els.img.src = b.photo ? `/photos/${encodeURIComponent(b.photo)}${bust}` : '';
     els.img.alt = b.photo || '';
     els.canvasWrap.classList.toggle('has-photo', !!b.photo);
     els.canvasEmpty.hidden = !!b.photo;
@@ -345,6 +416,36 @@ function renderDetail() {
 function buildProblemRow(p) {
     const node = els.tpl.content.firstElementChild.cloneNode(true);
     node.dataset.pid = p._id;
+    node.draggable = true;
+
+    // Drag & drop reordering within the problems list — live shuffle under
+    // the cursor. State catches up on drop, and numbers auto-renumber 1..N
+    // in the new order (both editor server and Python PDF builder sort by
+    // `no`, so reorder-without-renumber would revert on reload).
+    node.addEventListener('dragstart', (e) => {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', p._id);
+        requestAnimationFrame(() => node.classList.add('dragging'));
+    });
+    node.addEventListener('dragend', () => {
+        node.classList.remove('dragging');
+        commitProblemOrderFromDom();
+    });
+    node.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        const dragging = els.problemList.querySelector('.dragging');
+        if (!dragging || dragging === node) return;
+        const rect = node.getBoundingClientRect();
+        const before = e.clientY < rect.top + rect.height / 2;
+        els.problemList.insertBefore(dragging, before ? node : node.nextSibling);
+    });
+
+    // Text inputs bubble their mousedown up to the row and would otherwise
+    // start a drag when clicking inside them — cancel that.
+    for (const el of node.querySelectorAll('input, select, button')) {
+        el.addEventListener('mousedown', (e) => e.stopPropagation());
+    }
 
     const nInput = node.querySelector('.p-no');
     const nameInput = node.querySelector('.p-name');
@@ -804,6 +905,7 @@ async function uploadPhoto(file, overwrite) {
         if (!state.photos.includes(filename)) state.photos.push(filename);
         if (b) {
             b.photo = filename;
+            b._photoTs = Date.now(); // bust the image cache for this boulder
             renderDetail();
             renderSidebar();
             markDirty();
