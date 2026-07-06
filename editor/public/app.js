@@ -125,18 +125,35 @@ async function saveAll() {
         setStatus(`Save failed: ${err.error || res.status}`);
         return;
     }
-    const { removed = [] } = await res.json().catch(() => ({}));
+    const { removed = [], renamed = [] } = await res.json().catch(() => ({}));
+
+    // Server may have renamed photos on disk to match new boulder names.
+    // Apply those to state so the displayed image URL uses the new file.
+    if (renamed.length) {
+        const map = new Map(renamed.map((r) => [r.from, r.to]));
+        for (const b of state.boulders) {
+            if (b.photo && map.has(b.photo)) b.photo = map.get(b.photo);
+        }
+        state.photos = state.photos.map((p) => (map.has(p) ? map.get(p) : p));
+        renderDetail();
+        renderSidebar();
+    }
+
     // Drop deleted photos from local state so subsequent uploads don't think
     // the name is still taken.
     if (removed.length) {
         state.photos = state.photos.filter((p) => !removed.includes(p));
     }
+
     setDirty(false);
-    setStatus(
-        removed.length
-            ? `Saved · removed ${removed.length} orphan photo${removed.length === 1 ? '' : 's'}`
-            : 'Saved.',
-    );
+    const parts = [];
+    if (renamed.length) {
+        parts.push(`renamed ${renamed.length} photo${renamed.length === 1 ? '' : 's'}`);
+    }
+    if (removed.length) {
+        parts.push(`removed ${removed.length} orphan${removed.length === 1 ? '' : 's'}`);
+    }
+    setStatus(parts.length ? `Saved · ${parts.join(', ')}` : 'Saved.');
     setTimeout(() => setStatus(''), 2500);
 }
 
