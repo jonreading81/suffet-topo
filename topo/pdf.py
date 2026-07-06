@@ -280,28 +280,40 @@ def build_pdf(boulders, out_path, lang="en", clusters=None):
         row_h = 34
         pad_h = 22
         r = 12
+        # Fixed column x-positions so every row's letter/range/count/grade
+        # line up in the same place regardless of text width.
+        col_letter_x = M + r
+        col_range_x = M + 2 * r + 12
+        col_boulder_x = M + int(cw * 0.40)
+        col_problem_x = M + int(cw * 0.60)
+        col_grade_x = M + int(cw * 0.82)
         for idx, ci in enumerate(clusters):
             cy = ly - idx * row_h
             if idx % 2 == 1:
                 c.setFillColor(ZEBRA)
                 c.rect(M - 6, cy + 3 - row_h / 2, cw + 12, row_h, fill=1, stroke=0)
             c.setFillColor(BLUE)
-            c.circle(M + r, cy + 3, r, fill=1, stroke=0)
+            c.circle(col_letter_x, cy + 3, r, fill=1, stroke=0)
             c.setFillColor(HexColor("#ffffff"))
             c.setFont(BODY_BOLD, 12)
             # Text is anchored to the baseline while the circle is centred on
             # cy+3; drop the baseline by half of Roboto-Bold's cap height so
             # the letter's optical centre matches the circle's.
-            c.drawCentredString(M + r, cy + 3 - 4.3, ci["letter"])
+            c.drawCentredString(col_letter_x, cy + 3 - 4.3, ci["letter"])
             c.setFillColor(INK)
             c.setFont(BODY_BOLD, 12)
-            c.drawString(M + 2 * r + 12, cy, ci["range"])
+            c.drawString(col_range_x, cy, ci["range"])
             c.setFillColor(MUT)
             c.setFont(BODY_FONT, 10)
             n_b = len(ci["boulders"])
             n_p = ci["problem_count"]
-            summary = f"{n_b} boulder{'s' if n_b != 1 else ''}  ·  {n_p} problem{'s' if n_p != 1 else ''}"
-            c.drawRightString(W - M, cy, summary)
+            c.drawString(col_boulder_x, cy, f"{n_b} boulder{'s' if n_b != 1 else ''}")
+            c.drawString(col_problem_x, cy, f"{n_p} problem{'s' if n_p != 1 else ''}")
+            all_problems = [p for b in ci["boulders"] for p in b["problems"]]
+            grade_str = _grade_range(all_problems, L["project_grade"])
+            c.setFillColor(BLUE)
+            c.setFont(BODY_BOLD, 11)
+            c.drawString(col_grade_x, cy, grade_str)
         ly -= len(clusters) * row_h + pad_h
         # Note boulders that don't appear on any map because they lack GPS.
         no_gps = [b for b in boulders if not b.get("_has_gps")]
