@@ -103,7 +103,7 @@ def _grade_range(problems, project_label):
     return lo if lo == hi else f"{lo} – {hi}"
 
 
-def build_pdf(boulders, out_path, lang="en"):
+def build_pdf(boulders, out_path, lang="en", clusters=None):
     L = labels(lang)
     W, H = A4
     c = pdfcanvas.Canvas(out_path, pagesize=A4)
@@ -246,63 +246,125 @@ def build_pdf(boulders, out_path, lang="en"):
     c.setFillColor(MUT)
     c.drawString(M, mtop - hm2 - 12, L["map_caption"])
 
-    # Numbered legend below the map — pin number → boulder name, so readers
-    # can cross-reference the map with the detail pages that follow.
-    if boulders:
+    # Cluster summary below the overview map — 3 rows, one per cluster,
+    # showing the range of boulder numbers, how many boulders sit in that
+    # cluster, and the total number of problems. The per-boulder legend
+    # moves to each cluster's own page.
+    if clusters:
         ly = mtop - hm2 - 40
         c.setFillColor(INK)
         c.setFont(SERIF, 13)
-        c.drawString(M, ly, L["boulders_heading"])
+        c.drawString(M, ly, L.get("clusters_heading", L["boulders_heading"]))
         ly -= 10
         c.setStrokeColor(BLUE)
         c.setLineWidth(1.2)
         c.line(M, ly, W - M, ly)
         ly -= 30
-        row_h = 24
-        r = 7
-        # Auto-column so all boulders fit on this page. Compute how many rows
-        # fit above the footer at the row height, then bump the column count
-        # until every boulder fits. Fonts shrink at higher column counts so
-        # long names still clear the right-aligned grade.
-        footer_top = 60
-        avail_h = ly - footer_top
-        rows_per_col = max(1, int(avail_h // row_h))
-        n_cols = max(1, (len(boulders) + rows_per_col - 1) // rows_per_col)
-        rows_per_col = (len(boulders) + n_cols - 1) // n_cols
-        col_gap = 20
-        col_w = (cw - col_gap * (n_cols - 1)) / n_cols
-        name_font_size = 10 if n_cols == 1 else (9 if n_cols == 2 else 8)
-        grade_font_size = 8.5 if n_cols <= 2 else 7.5
         ZEBRA = HexColor("#f2f4f8")
-        for idx, b in enumerate(boulders):
-            col = idx // rows_per_col
-            row = idx % rows_per_col
-            cx = M + col * (col_w + col_gap)
-            cy = ly - row * row_h
-            if row % 2 == 1:
+        row_h = 34
+        pad_h = 22
+        r = 12
+        for idx, ci in enumerate(clusters):
+            cy = ly - idx * row_h
+            if idx % 2 == 1:
                 c.setFillColor(ZEBRA)
-                # Rect is centred on the content: content spans cy-6 (pin
-                # bottom) to cy+12 (pin top), midpoint cy+3, so the row_h
-                # box goes from cy+3-row_h/2 to cy+3+row_h/2.
-                c.rect(cx - 6, cy + 3 - row_h / 2, col_w + 12, row_h, fill=1, stroke=0)
+                c.rect(M - 6, cy + 3 - row_h / 2, cw + 12, row_h, fill=1, stroke=0)
             c.setFillColor(BLUE)
-            c.circle(cx + r, cy + 3, r, fill=1, stroke=0)
+            c.circle(M + r, cy + 3, r, fill=1, stroke=0)
             c.setFillColor(HexColor("#ffffff"))
-            c.setFont(BODY_BOLD, 7.5)
-            c.drawCentredString(cx + r, cy, str(b["id"]))
+            c.setFont(BODY_BOLD, 12)
+            # Text is anchored to the baseline while the circle is centred on
+            # cy+3; drop the baseline by half of Roboto-Bold's cap height so
+            # the letter's optical centre matches the circle's.
+            c.drawCentredString(M + r, cy + 3 - 4.3, ci["letter"])
             c.setFillColor(INK)
-            c.setFont(BODY_BOLD, name_font_size)
-            c.drawString(cx + 2 * r + 10, cy, b["name"])
+            c.setFont(BODY_BOLD, 12)
+            c.drawString(M + 2 * r + 12, cy, ci["range"])
             c.setFillColor(MUT)
-            c.setFont(BODY_FONT, grade_font_size)
-            grade_str = _grade_range(b["problems"], L["project_grade"])
-            c.drawRightString(cx + col_w, cy, grade_str)
+            c.setFont(BODY_FONT, 10)
+            n_b = len(ci["boulders"])
+            n_p = ci["problem_count"]
+            summary = f"{n_b} boulder{'s' if n_b != 1 else ''}  ·  {n_p} problem{'s' if n_p != 1 else ''}"
+            c.drawRightString(W - M, cy, summary)
+        ly -= len(clusters) * row_h + pad_h
+        # Note boulders that don't appear on any map because they lack GPS.
+        no_gps = [b for b in boulders if not b.get("_has_gps")]
+        if no_gps:
+            c.setFillColor(MUT)
+            c.setFont(BODY_FONT, 9)
+            names = ", ".join(f"{b['id']}. {b['name']}" for b in no_gps)
+            c.drawString(M, ly, f"No GPS: {names}")
     footer(2)
     c.showPage()
 
-    # one detail page per boulder
+    # Per-cluster detail pages — one page per cluster with a zoomed detail
+    # map and the full boulder legend for that cluster.
     pg = 3
-    for b in boulders:
+
+    def _cluster_page(ci, page_num):
+        header(L["title"], f"Cluster {ci['letter']}  ·  {ci['range']}")
+        cluster_map_path = os.path.join(out_dir, f"_map_cluster_{ci['letter']}.jpg")
+        im2 = Image.open(cluster_map_path)
+        iw2, ih2 = im2.size
+        hh = cw * ih2 / iw2
+        c.drawImage(
+            _rounded_reader(cluster_map_path, cw, hh),
+            M, mtop - hh, cw, hh, mask="auto",
+        )
+        c.setStrokeColor(LINE)
+        c.setLineWidth(0.5)
+        c.roundRect(M, mtop - hh, cw, hh, CORNER_RADIUS_PT, fill=0, stroke=1)
+        c.setFont("Helvetica-Oblique", 7.5)
+        c.setFillColor(MUT)
+        c.drawString(M, mtop - hh - 12, L["map_caption"])
+
+        ly2 = mtop - hh - 40
+        c.setFillColor(INK)
+        c.setFont(SERIF, 13)
+        c.drawString(M, ly2, L["boulders_heading"])
+        ly2 -= 10
+        c.setStrokeColor(BLUE)
+        c.setLineWidth(1.2)
+        c.line(M, ly2, W - M, ly2)
+        ly2 -= 30
+        row_h_c = 24
+        rr = 7
+        footer_top = 60
+        avail_h = ly2 - footer_top
+        rows_per_col = max(1, int(avail_h // row_h_c))
+        n_cols = max(1, (len(ci["boulders"]) + rows_per_col - 1) // rows_per_col)
+        rows_per_col = (len(ci["boulders"]) + n_cols - 1) // n_cols
+        col_gap = 20
+        col_w = (cw - col_gap * (n_cols - 1)) / n_cols
+        name_font_size = 11 if n_cols == 1 else (10 if n_cols == 2 else 9)
+        grade_font_size = 9 if n_cols <= 2 else 8
+        ZEBRA = HexColor("#f2f4f8")
+        for idx, b in enumerate(ci["boulders"]):
+            col = idx // rows_per_col
+            row = idx % rows_per_col
+            cxp = M + col * (col_w + col_gap)
+            cyp = ly2 - row * row_h_c
+            if row % 2 == 1:
+                c.setFillColor(ZEBRA)
+                c.rect(cxp - 6, cyp + 3 - row_h_c / 2, col_w + 12, row_h_c, fill=1, stroke=0)
+            c.setFillColor(BLUE)
+            c.circle(cxp + rr, cyp + 3, rr, fill=1, stroke=0)
+            c.setFillColor(HexColor("#ffffff"))
+            c.setFont(BODY_BOLD, 7.5)
+            # Same cap-height correction as the cluster overview so the digit
+            # sits at the circle's optical centre, not on its baseline.
+            c.drawCentredString(cxp + rr, cyp + 3 - 2.7, str(b["id"]))
+            c.setFillColor(INK)
+            c.setFont(BODY_BOLD, name_font_size)
+            c.drawString(cxp + 2 * rr + 10, cyp, b["name"])
+            c.setFillColor(MUT)
+            c.setFont(BODY_FONT, grade_font_size)
+            grade_str = _grade_range(b["problems"], L["project_grade"])
+            c.drawRightString(cxp + col_w, cyp, grade_str)
+        footer(page_num)
+        c.showPage()
+
+    def _boulder_page(b, page_num):
         header(b["name"], f"{b['lat']:.5f}°N, {b['lon']:.5f}°E  ·  {b.get('alt_str', '')}")
         im = Image.open(b["_render"])
         iw, ih = im.size
@@ -410,8 +472,26 @@ def build_pdf(boulders, out_path, lang="en"):
             c.setLineWidth(0.5)
             c.line(rx, last_baseline - 16, rx + rw, last_baseline - 16)
             yp = last_baseline - 38
-        footer(pg)
+        footer(page_num)
         c.showPage()
-        pg += 1
+
+    if clusters:
+        # Interleave: each cluster's overview page followed by its boulder
+        # detail pages, then any boulders with no cluster (missing GPS) at
+        # the end.
+        for ci in clusters:
+            _cluster_page(ci, pg)
+            pg += 1
+            for b in ci["boulders"]:
+                _boulder_page(b, pg)
+                pg += 1
+        for b in [b for b in boulders if not b.get("_has_gps")]:
+            _boulder_page(b, pg)
+            pg += 1
+    else:
+        for b in boulders:
+            _boulder_page(b, pg)
+            pg += 1
+
     c.setTitle("Refuge du Suffet boulders")
     c.save()

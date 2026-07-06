@@ -117,5 +117,34 @@ def build_boulders(rows, photos_dir):
     ordered = with_gps + without_gps
     for i, b in enumerate(ordered, 1):
         b["id"] = i
-        del b["_has_gps"]
     return ordered
+
+
+def cluster_by_lon_gap(boulders, n_clusters=3):
+    """Split boulders (that have real GPS) into `n_clusters` groups by
+    splitting on the largest longitude gaps. Boulders without GPS are
+    returned separately so callers can list them but not place them on
+    a map.
+
+    Returns (clusters, without_gps): clusters is a list of `n_clusters`
+    lists, each ordered west→east; without_gps is a flat list.
+    """
+    with_gps = sorted(
+        (b for b in boulders if b.get("_has_gps")),
+        key=lambda b: b["lon"],
+    )
+    without_gps = [b for b in boulders if not b.get("_has_gps")]
+    if len(with_gps) <= n_clusters:
+        return ([[b] for b in with_gps] +
+                [[] for _ in range(n_clusters - len(with_gps))], without_gps)
+    gaps = [
+        (with_gps[k + 1]["lon"] - with_gps[k]["lon"], k)
+        for k in range(len(with_gps) - 1)
+    ]
+    split_after = sorted(k for _, k in sorted(gaps, reverse=True)[: n_clusters - 1])
+    clusters, start = [], 0
+    for k in split_after:
+        clusters.append(with_gps[start : k + 1])
+        start = k + 1
+    clusters.append(with_gps[start:])
+    return clusters, without_gps

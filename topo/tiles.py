@@ -107,6 +107,107 @@ def _nice_scale_bar_m(target_m):
     return int(pick * 10 ** e)
 
 
+def _draw_cluster_labels(d, points, ox, oy, z, blue, base_font):
+    """Draw one wide pill-shaped label per cluster, with a triangular tail
+    pointing to the cluster's centroid. `points` are the cluster centroids
+    (list of dicts with lat/lon/label). Labels repel each other."""
+    from .style import font as _f
+
+    fill_col = blue + (240,)
+    text_col = (255, 255, 255, 255)
+    lbl_font = _f(20)
+    tail_len = 10
+    pad_x, pad_y = 12, 6
+    corner_r = 10
+
+    boxes = []  # {anchor, pos:[cx,cy], w, h, text, tb}
+    for p in points:
+        px, py = global_px(p["lat"], p["lon"], z)
+        ax, ay = px - ox, py - oy
+        text = p["label"]
+        tb = d.textbbox((0, 0), text, font=lbl_font)
+        tw, th = tb[2] - tb[0], tb[3] - tb[1]
+        w, h = tw + 2 * pad_x, th + 2 * pad_y
+        # Initial label position: above the anchor with the tail_len gap
+        boxes.append({
+            "anchor": (ax, ay),
+            "pos": [ax, ay - h / 2 - tail_len],
+            "w": w, "h": h, "text": text, "tb": tb,
+        })
+
+    # Rectangle-based repulsion between labels.
+    for _ in range(400):
+        moved = False
+        for i in range(len(boxes)):
+            for j in range(i + 1, len(boxes)):
+                a, b = boxes[i], boxes[j]
+                dx = b["pos"][0] - a["pos"][0]
+                dy = b["pos"][1] - a["pos"][1]
+                min_x = (a["w"] + b["w"]) / 2 + 8
+                min_y = (a["h"] + b["h"]) / 2 + 6
+                overlap_x = min_x - abs(dx)
+                overlap_y = min_y - abs(dy)
+                if overlap_x > 0 and overlap_y > 0:
+                    if overlap_x < overlap_y:
+                        push = overlap_x / 2 + 0.5
+                        if dx >= 0:
+                            a["pos"][0] -= push
+                            b["pos"][0] += push
+                        else:
+                            a["pos"][0] += push
+                            b["pos"][0] -= push
+                    else:
+                        push = overlap_y / 2 + 0.5
+                        if dy >= 0:
+                            a["pos"][1] -= push
+                            b["pos"][1] += push
+                        else:
+                            a["pos"][1] += push
+                            b["pos"][1] -= push
+                    moved = True
+        if not moved:
+            break
+
+    for box in boxes:
+        ax, ay = box["anchor"]
+        lx, ly = box["pos"]
+        w, h = box["w"], box["h"]
+        bx0, by0 = lx - w / 2, ly - h / 2
+        bx1, by1 = lx + w / 2, ly + h / 2
+
+        # Tail: triangle whose base sits on the closest edge of the label
+        # facing the anchor, apex at the anchor.
+        vx, vy = ax - lx, ay - ly
+        vlen = math.hypot(vx, vy)
+        if vlen < 1e-6:
+            ux, uy = 0.0, 1.0
+        else:
+            ux, uy = vx / vlen, vy / vlen
+        # Where the vector head→anchor exits the box.
+        tx = ux / max(abs(ux), 1e-6) if abs(ux) > 1e-6 else 0
+        ty = uy / max(abs(uy), 1e-6) if abs(uy) > 1e-6 else 0
+        # Choose the box side pierced by the vector, then place the base on
+        # that side.
+        exit_scale_x = (w / 2) / abs(ux) if abs(ux) > 1e-6 else float("inf")
+        exit_scale_y = (h / 2) / abs(uy) if abs(uy) > 1e-6 else float("inf")
+        exit_scale = min(exit_scale_x, exit_scale_y)
+        rim_x = lx + ux * exit_scale
+        rim_y = ly + uy * exit_scale
+        base_w = 14
+        perp_x, perp_y = -uy, ux
+        base_l = (rim_x - perp_x * base_w / 2, rim_y - perp_y * base_w / 2)
+        base_r = (rim_x + perp_x * base_w / 2, rim_y + perp_y * base_w / 2)
+        tip = (ax, ay)
+        d.polygon([base_l, base_r, tip], fill=fill_col)
+        d.rounded_rectangle([bx0, by0, bx1, by1], radius=corner_r, fill=fill_col)
+        tb = box["tb"]
+        tw, th = tb[2] - tb[0], tb[3] - tb[1]
+        d.text(
+            (lx - tw / 2 - tb[0], ly - th / 2 - tb[1]),
+            box["text"], fill=text_col, font=lbl_font,
+        )
+
+
 def stitch_map(
     points,
     refuge,
@@ -117,6 +218,8 @@ def stitch_map(
     layer=None,
     fmt=None,
     show_boulders=True,
+    marker_style="pin",
+    fit_refuge=True,
 ):
     """Compose a stitched map JPEG.
 
@@ -139,12 +242,15 @@ def stitch_map(
     if fmt is None:
         fmt = "image/jpeg"
     all_pts = [(refuge["lat"], refuge["lon"])] + [(p["lat"], p["lon"]) for p in points]
+    # For a zoomed-in map of a cluster we don't want the refuge dragging the
+    # frame outward; caller sets fit_refuge=False and we fit just the pins.
+    fit_pts = all_pts if fit_refuge or not show_boulders else all_pts[1:]
     if z is None:
         # Auto-fit against all points when we're actually going to render them;
         # otherwise just the refuge and let the caller pick a wider zoom.
-        z = _fit_zoom(all_pts if show_boulders else [all_pts[0]], Wc, Hc)
-    cx = sum(global_px(la, lo, z)[0] for la, lo in all_pts) / len(all_pts)
-    cy = sum(global_px(la, lo, z)[1] for la, lo in all_pts) / len(all_pts)
+        z = _fit_zoom(fit_pts if show_boulders else [all_pts[0]], Wc, Hc)
+    cx = sum(global_px(la, lo, z)[0] for la, lo in fit_pts) / len(fit_pts)
+    cy = sum(global_px(la, lo, z)[1] for la, lo in fit_pts) / len(fit_pts)
     ox, oy = cx - Wc / 2, cy - Hc / 2
     canvas = Image.new("RGB", (Wc, Hc), (200, 200, 200))
     c0, c1 = int(ox // 256), int((ox + Wc) // 256)
@@ -179,11 +285,13 @@ def stitch_map(
     # a triangular tail that tapers to the exact GPS point. Heads repel each
     # other to avoid overlap; the tail stretches so the tip still touches
     # the true position no matter how far the head is pushed.
-    if show_boulders:
-        head_r = 10
-        tail_len = 7              # default head-bottom to anchor gap
-        min_dist = 2 * head_r + 10  # 10px clear gap between adjacent heads
-        label_font = font(11)     # smaller than the refuge label (17)
+    if show_boulders and marker_style == "cluster":
+        _draw_cluster_labels(d, points, ox, oy, z, blue, f2)
+    elif show_boulders:
+        head_r = 14
+        tail_len = 9              # default head-bottom to anchor gap
+        min_dist = 2 * head_r + 12  # 12px clear gap between adjacent heads
+        label_font = font(16)     # sized for the roomier cluster detail maps
         anchors, heads = [], []
         for p in points:
             px, py = global_px(p["lat"], p["lon"], z)
