@@ -121,7 +121,13 @@ def main():
         Hc=480,
         show_boulders=False,
     )
-    stitch_map(map_points, REFUGE, os.path.join(args.output, "_map.jpg"))
+    stitch_map(
+        map_points,
+        REFUGE,
+        os.path.join(args.output, "_map.jpg"),
+        layer=IGN_TOPO,
+        fmt="image/png",
+    )
 
     # bounding box for offline tiles (around refuge + boulders, padded)
     lats = [REFUGE["lat"]] + [b["lat"] for b in boulders]

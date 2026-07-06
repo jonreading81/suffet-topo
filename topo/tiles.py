@@ -210,9 +210,11 @@ def stitch_map(
             bx, by = pins[i]
             if math.hypot(bx - ax, by - ay) > 1.5:
                 d.line([(ax, ay), (bx, by)], fill=(255, 255, 255, 230), width=2)
-                d.ellipse([ax - 3, ay - 3, ax + 3, ay + 3], fill=blue + (255,), outline=(255, 255, 255, 255), width=1)
+                d.ellipse([ax - 3, ay - 3, ax + 3, ay + 3], fill=blue + (200,), outline=(255, 255, 255, 230), width=1)
             label = p.get("label", str(i + 1))
-            d.ellipse([bx - rr, by - rr, bx + rr, by + rr], fill=blue + (255,), outline=(255, 255, 255, 255), width=3)
+            # Fade the pin fill so the map underneath is still visible; keep
+            # the white outline and the number crisp so it stays readable.
+            d.ellipse([bx - rr, by - rr, bx + rr, by + rr], fill=blue + (200,), outline=(255, 255, 255, 230), width=3)
             tb = d.textbbox((0, 0), label, font=f2)
             d.text(
                 (bx - (tb[2] - tb[0]) / 2, by - (tb[3] - tb[1]) / 2 - tb[1]),
