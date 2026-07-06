@@ -39,6 +39,14 @@ gps:
   # "low confidence, verify on map" warning.
   accuracy_flag_m: 15
 
+# Bridges spanning the Ruisseau d'Ambin near the boulders. Rendered as small
+# brown crossbar markers on the cluster overview + detail maps so climbers
+# can orient themselves against the road crossings.
+# These are estimated positions — adjust once ground-truthed.
+bridges:
+  - {lat: 45.20584, lon: 6.85210, name: "Bridge 1"}
+  - {lat: 45.204009, lon: 6.860128, name: "Bridge 2"}
+
 # PDF chrome labels. Content (boulder names, problem names, GPS numbers, grades)
 # is language-neutral and stays as-is.
 #
@@ -52,7 +60,7 @@ labels:
     map_caption:            "IGN aerial · the refuge and the boulders"
     getting_there_heading:  "Getting there"
     subtitle_boulders:      "Haute-Maurienne · the boulders"
-    boulders_heading:       "The boulders"
+    boulders_heading:       "The Boulders"
     clusters_heading:       "Clusters"
     footer:                 "Refuge du Suffet boulders"
     location:               "Location"

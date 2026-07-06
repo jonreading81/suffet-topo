@@ -37,6 +37,7 @@ ZOOM_MAX = int(_cfg["tiles"]["zoom_max"])
 ACCURACY_FLAG_M = int(_cfg["gps"]["accuracy_flag_m"])
 LABELS = _cfg["labels"]
 GETTING_THERE = _cfg.get("getting_there", {})
+BRIDGES = list(_cfg.get("bridges") or [])
 
 # IGN tile server / layer identifiers — code-level constants (not user config).
 IGN = "https://data.geopf.fr/wmts"

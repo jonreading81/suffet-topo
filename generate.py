@@ -36,7 +36,7 @@ from topo.data import build_boulders, cluster_by_lon_gap, load_rows
 from topo.html import build_html
 from topo.lines import render_boulder_photo
 from topo.pdf import build_pdf
-from topo.style import IGN_TOPO, REFUGE
+from topo.style import BRIDGES, IGN_TOPO, REFUGE
 from topo.tiles import bundle_tiles, stitch_map
 
 
@@ -167,14 +167,23 @@ def main():
         layer=IGN_TOPO,
         fmt="image/png",
         marker_style="cluster",
+        bridges=BRIDGES,
     )
 
     # One detail map per cluster — teardrop pins for the individual boulders,
-    # auto-fit to the cluster's spatial extent.
+    # auto-fit to the cluster's spatial extent. Boulders from other clusters
+    # go in as `context_points` so any that fall inside the frame render as
+    # ghosted markers, giving readers a sense of what's nearby.
     for ci in cluster_infos:
         detail_points = [
             {"lat": b["lat"], "lon": b["lon"], "name": b["name"], "label": str(b["id"])}
             for b in ci["boulders"]
+        ]
+        this_ids = {b["id"] for b in ci["boulders"]}
+        other_points = [
+            {"lat": b["lat"], "lon": b["lon"], "label": str(b["id"])}
+            for b in boulders
+            if b.get("_has_gps") and b["id"] not in this_ids
         ]
         stitch_map(
             detail_points,
@@ -183,6 +192,8 @@ def main():
             layer=IGN_TOPO,
             fmt="image/png",
             fit_refuge=False,
+            bridges=BRIDGES,
+            context_points=other_points,
         )
 
     # bounding box for offline tiles (around refuge + boulders, padded)

@@ -220,6 +220,8 @@ def stitch_map(
     show_boulders=True,
     marker_style="pin",
     fit_refuge=True,
+    bridges=None,
+    context_points=None,
 ):
     """Compose a stitched map JPEG.
 
@@ -267,12 +269,13 @@ def stitch_map(
     d = ImageDraw.Draw(canvas, "RGBA")
     f1, f2 = font(22), font(17)
     teal, blue = hx(BRAND["teal"]), hx(BRAND["blue"])
-    # refuge marker (teal square, house)
+    # Refuge marker (brand-blue square, white house). Text label sits in a
+    # semi-transparent white pill next to the square, in the same blue.
     sx, sy = global_px(refuge["lat"], refuge["lon"], z)
     sx -= ox
     sy -= oy
     w = 17
-    d.rectangle([sx - w, sy - w, sx + w, sy + w], fill=teal + (255,), outline=(255, 255, 255, 255), width=3)
+    d.rectangle([sx - w, sy - w, sx + w, sy + w], fill=blue + (255,), outline=(255, 255, 255, 255), width=3)
     d.polygon([(sx - 9, sy - 1), (sx, sy - 10), (sx + 9, sy - 1)], fill=(255, 255, 255, 255))
     d.rectangle([sx - 6, sy - 1, sx + 6, sy + 8], fill=(255, 255, 255, 255))
     lb = d.textbbox((0, 0), refuge["name"], font=f2)
@@ -280,7 +283,66 @@ def stitch_map(
         [sx + w + 3, sy - 11, sx + w + (lb[2] - lb[0]) + 11, sy + 13],
         fill=(255, 255, 255, 230),
     )
-    d.text((sx + w + 7, sy - 9), refuge["name"], fill=teal + (255,), font=f2)
+    d.text((sx + w + 7, sy - 9), refuge["name"], fill=blue + (255,), font=f2)
+
+    # Bridge glyphs — draw them BEFORE the boulder pins so any pin that
+    # lands over a bridge stays on top and remains readable. The on-map key
+    # is drawn later (below, after the pin/marker block) so it always sits
+    # on top of everything.
+    bridge_col = (117, 74, 34, 245)
+    bridge_edge = (255, 255, 255, 240)
+
+    def _draw_footbridge(cx, cy):
+        d.rectangle([cx - 6, cy - 14, cx + 6, cy + 14], fill=bridge_edge)
+        d.rectangle([cx - 5, cy - 13, cx - 3, cy + 13], fill=bridge_col)
+        d.rectangle([cx + 3, cy - 13, cx + 5, cy + 13], fill=bridge_col)
+        for py in (cy - 11, cy - 6, cy - 1, cy + 4, cy + 9):
+            d.rectangle([cx - 5, py, cx + 5, py + 2], fill=bridge_col)
+
+    if bridges:
+        for br in bridges:
+            bx, by = global_px(br["lat"], br["lon"], z)
+            bx -= ox
+            by -= oy
+            if bx < -20 or by < -20 or bx > Wc + 20 or by > Hc + 20:
+                continue
+            _draw_footbridge(bx, by)
+    # Context markers — boulders from OTHER clusters that fall within this
+    # map's frame. Drawn as ghosted teardrops (50% opacity, no repulsion) so
+    # readers can see how their cluster sits relative to nearby ones.
+    if context_points:
+        ctx_head_r = 14
+        ctx_tail_len = 9
+        ctx_fill = blue + (128,)  # 50% alpha
+        ctx_font = font(16)
+        for p in context_points:
+            px, py = global_px(p["lat"], p["lon"], z)
+            ax, ay = px - ox, py - oy
+            if ax < -30 or ay < -30 or ax > Wc + 30 or ay > Hc + 30:
+                continue
+            hx_, hy_ = ax, ay - ctx_head_r - ctx_tail_len
+            # Tail
+            vx, vy = ax - hx_, ay - hy_
+            vlen = math.hypot(vx, vy)
+            ux, uy = (vx / vlen, vy / vlen) if vlen > 1e-6 else (0.0, 1.0)
+            rim_x = hx_ + ux * (ctx_head_r - 1)
+            rim_y = hy_ + uy * (ctx_head_r - 1)
+            base_w = ctx_head_r * 0.75
+            perp_x, perp_y = -uy, ux
+            base_l = (rim_x - perp_x * base_w / 2, rim_y - perp_y * base_w / 2)
+            base_r = (rim_x + perp_x * base_w / 2, rim_y + perp_y * base_w / 2)
+            d.polygon([base_l, base_r, (ax, ay)], fill=ctx_fill)
+            d.ellipse(
+                [hx_ - ctx_head_r, hy_ - ctx_head_r, hx_ + ctx_head_r, hy_ + ctx_head_r],
+                fill=ctx_fill,
+            )
+            label = p.get("label", "")
+            tb = d.textbbox((0, 0), label, font=ctx_font)
+            d.text(
+                (hx_ - (tb[2] - tb[0]) / 2, hy_ - (tb[3] - tb[1]) / 2 - tb[1]),
+                label, fill=(255, 255, 255, 160), font=ctx_font,
+            )
+
     # Boulder pins — Google-Maps-style: the head sits above the anchor with
     # a triangular tail that tapers to the exact GPS point. Heads repel each
     # other to avoid overlap; the tail stretches so the tip still touches
@@ -362,6 +424,31 @@ def stitch_map(
                 (headx - (tb[2] - tb[0]) / 2, heady - (tb[3] - tb[1]) / 2 - tb[1]),
                 label, fill=(255, 255, 255, 255), font=label_font,
             )
+    # Footbridge on-map key (bridge icons themselves are drawn earlier so
+    # boulder pins render on top of them; the key belongs on top of
+    # everything, so it lives here).
+    if bridges:
+        key_text = "Footbridge"
+        text_bb = d.textbbox((0, 0), key_text, font=f2)
+        text_w = text_bb[2] - text_bb[0]
+        text_h = text_bb[3] - text_bb[1]
+        icon_w = 12
+        pad_x, pad_y, gap = 10, 6, 8
+        box_w = pad_x + icon_w + gap + text_w + pad_x
+        box_h = max(20, text_h + 2 * pad_y) + 8
+        # Anchored bottom-right, above the © IGN attribution strip.
+        box_x = Wc - box_w - 24
+        box_y = Hc - 70
+        d.rectangle(
+            [box_x, box_y - box_h / 2, box_x + box_w, box_y + box_h / 2],
+            fill=(0, 0, 0, 140),
+        )
+        _draw_footbridge(box_x + pad_x + icon_w / 2, box_y)
+        d.text(
+            (box_x + pad_x + icon_w + gap, box_y - text_h / 2 - text_bb[1]),
+            key_text, fill=(255, 255, 255, 255), font=f2,
+        )
+
     # scale bar (adaptive: bar target ~12% of canvas width, snapped to 1/2/5)
     mpp = 156543.03392 * math.cos(math.radians(all_pts[0][0])) / (2 ** z)
     bar_m = _nice_scale_bar_m(Wc * 0.12 * mpp)
