@@ -410,51 +410,46 @@ def build_pdf(boulders, out_path, lang="en", clusters=None):
         c.setStrokeColor(LINE)
         c.setLineWidth(0.5)
         c.roundRect(px, py, pw, ph, CORNER_RADIUS_PT, fill=0, stroke=1)
-        rx = M + pw + 26
-        rw = W - M - rx
-        yr = H - 130
-        mh = 122
-        c.setFillColor(CARD)
-        c.roundRect(rx, yr - mh, rw, mh, 8, fill=1, stroke=0)
-        c.setFillColor(BLUE)
-        c.setFont(SERIF, 12)
-        c.drawString(rx + 14, yr - 20, L["location"])
 
-        def meta(label, value, yy):
-            c.setFont(BODY_FONT, 8.8)
-            c.setFillColor(MUT)
-            c.drawString(rx + 14, yy, label)
-            c.setFont(BODY_FONT, 9.5)
-            c.setFillColor(INK)
-            c.drawRightString(rx + rw - 14, yy, value)
-
-        meta(L["latitude"], f"{b['lat']:.5f}°N", yr - 42)
-        meta(L["longitude"], f"{b['lon']:.5f}°E", yr - 60)
-        meta(L["altitude"], b.get("alt_str", "–"), yr - 78)
+        # GPS accuracy chip — overlaid at the bottom of the boulder photo so
+        # it reads like a caption. Slightly translucent (alpha 0.85) so the
+        # image texture shows through; green for a good fix, amber for a
+        # warning. Text is drawn at full opacity to stay crisp.
         if b.get("acc") is not None:
             flagged = b["acc"] >= ACCURACY_FLAG_M
+            chip_inset = 8
+            chip_h = 18
+            chip_x = px + chip_inset
+            chip_y = py + chip_inset
+            chip_w = pw - 2 * chip_inset
+            c.saveState()
+            c.setFillAlpha(0.85)
             c.setFillColor(WARN if flagged else OK_BG)
-            c.roundRect(rx + 14, yr - mh + 14, rw - 28, 18, 4, fill=1, stroke=0)
+            c.roundRect(chip_x, chip_y, chip_w, chip_h, 4, fill=1, stroke=0)
+            c.restoreState()
             c.setFillColor(AMBER if flagged else OK_TEXT)
             msg = (L["gps_warn"] if flagged else L["gps_ok"]) % b["acc"]
-            # Auto-shrink to fit the pill so longer translations (e.g. the FR
-            # accuracy warning) don't overflow.
-            avail = rw - 36
+            avail = chip_w - 20
             fsize = 8.5
             while c.stringWidth(msg, BODY_BOLD, fsize) > avail and fsize > 6:
                 fsize -= 0.25
             c.setFont(BODY_BOLD, fsize)
-            c.drawString(rx + 22, yr - mh + 20, msg)
+            c.drawString(chip_x + 10, chip_y + 6, msg)
 
-        yp = yr - mh - 26
+        rx = M + pw + 26
+        rw = W - M - rx
+        yr = H - 130
+        # Problems section starts near the top of the right column now that
+        # the location card is gone.
+        yp = yr - 22
         c.setFillColor(INK)
-        c.setFont(SERIF, 13)
+        c.setFont(SERIF, 16)
         c.drawString(rx, yp, L["problems"])
-        yp -= 6
+        yp -= 10
         c.setStrokeColor(BLUE)
         c.setLineWidth(1.2)
         c.line(rx, yp, rx + rw, yp)
-        yp -= 22
+        yp -= 32
         for p in b["problems"]:
             r = 7
             col = HexColor(p["color"])
