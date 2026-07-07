@@ -81,15 +81,13 @@ def _grade_key(g):
 
 
 def _grade_range(problems, project_label):
-    """'6a', '5b+–6c+', 'Project', or '–' — a one-glance grade summary for a
-    boulder's problems. Projects are folded in only when there's no graded
-    problem to report; unparseable grades are skipped."""
+    """'6A', '5B+ – 6C+', 'Project', or '–' — a one-glance grade summary
+    for a boulder's problems. Projects contribute their *proposed* grade to
+    the range too; if there's no numeric grade at all but there is at least
+    one project, fall back to the project label. Unparseable grades are
+    skipped."""
     graded = []
-    has_project = False
     for p in problems:
-        if p.get("project"):
-            has_project = True
-            continue
         g = (p.get("grade") or "").strip()
         if not g or g == "–":
             continue
@@ -97,10 +95,10 @@ def _grade_range(problems, project_label):
         if k is not None:
             graded.append((g, k))
     if not graded:
-        return project_label if has_project else "–"
+        return project_label if any(p.get("project") for p in problems) else "–"
     graded.sort(key=lambda x: x[1])
     lo, hi = graded[0][0], graded[-1][0]
-    return lo if lo == hi else f"{lo} – {hi}"
+    return lo if lo == hi else f"{lo} − {hi}"
 
 
 def build_pdf(boulders, out_path, lang="en", clusters=None):
