@@ -35,6 +35,7 @@ LINE_PALETTE = list(_cfg["line_palette"])
 ZOOM_MIN = int(_cfg["tiles"]["zoom_min"])
 ZOOM_MAX = int(_cfg["tiles"]["zoom_max"])
 ACCURACY_FLAG_M = int(_cfg["gps"]["accuracy_flag_m"])
+CAMERA_OFFSET_M = float(_cfg["gps"].get("camera_offset_m", 0))
 LABELS = _cfg["labels"]
 GETTING_THERE = _cfg.get("getting_there", {})
 BRIDGES = list(_cfg.get("bridges") or [])

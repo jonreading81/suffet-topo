@@ -330,7 +330,7 @@ def build_pdf(boulders, out_path, lang="en", clusters=None):
     pg = 3
 
     def _cluster_page(ci, page_num):
-        header(L["title"], f"Cluster {ci['letter']}  ·  {ci['range']}")
+        header(f"Cluster {ci['letter']}", f"Boulders {ci['range']}")
         cluster_map_path = os.path.join(out_dir, f"_map_cluster_{ci['letter']}.jpg")
         im2 = Image.open(cluster_map_path)
         iw2, ih2 = im2.size
@@ -411,7 +411,7 @@ def build_pdf(boulders, out_path, lang="en", clusters=None):
         rx = M + pw + 26
         rw = W - M - rx
         yr = H - 130
-        mh = 140
+        mh = 122
         c.setFillColor(CARD)
         c.roundRect(rx, yr - mh, rw, mh, 8, fill=1, stroke=0)
         c.setFillColor(BLUE)
@@ -429,7 +429,6 @@ def build_pdf(boulders, out_path, lang="en", clusters=None):
         meta(L["latitude"], f"{b['lat']:.5f}°N", yr - 42)
         meta(L["longitude"], f"{b['lon']:.5f}°E", yr - 60)
         meta(L["altitude"], b.get("alt_str", "–"), yr - 78)
-        meta(L["photo_bearing"], b.get("bearing_str", "–"), yr - 96)
         if b.get("acc") is not None:
             flagged = b["acc"] >= ACCURACY_FLAG_M
             c.setFillColor(WARN if flagged else CARD)

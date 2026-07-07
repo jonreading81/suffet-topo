@@ -5,11 +5,22 @@ insertion order. GPS/altitude/bearing/accuracy come from each boulder's photo
 (EXIF), not the sheet.
 """
 import csv
+import math
 import os
 
 from .exif import read_gps
 from .lines import parse_line
-from .style import BRAND, LINE_PALETTE, REFUGE
+from .style import BRAND, CAMERA_OFFSET_M, LINE_PALETTE, REFUGE
+
+
+def _offset_by_bearing(lat, lon, bearing_deg, distance_m):
+    """Shift (lat, lon) `distance_m` metres in the compass bearing direction
+    (0° = north, clockwise). Uses the flat-earth approximation, which is
+    fine for the ~4m nudges we care about here."""
+    theta = math.radians(bearing_deg)
+    dlat = distance_m * math.cos(theta) / 111320.0
+    dlon = distance_m * math.sin(theta) / (111320.0 * math.cos(math.radians(lat)))
+    return lat + dlat, lon + dlon
 
 
 def load_rows(sheet_path):
@@ -88,9 +99,15 @@ def build_boulders(rows, photos_dir):
             "problems": problems,
         }
         if gps:
+            lat, lon = gps["lat"], gps["lon"]
+            # If the photo has a compass bearing, nudge the recorded (camera)
+            # position forward by CAMERA_OFFSET_M so it points at the boulder
+            # itself instead of where the photographer was standing.
+            if CAMERA_OFFSET_M and gps["bearing"] is not None:
+                lat, lon = _offset_by_bearing(lat, lon, gps["bearing"], CAMERA_OFFSET_M)
             b.update(
-                lat=gps["lat"],
-                lon=gps["lon"],
+                lat=lat,
+                lon=lon,
                 alt=gps["alt"],
                 bearing=gps["bearing"],
                 acc=gps["acc"],

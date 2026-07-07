@@ -350,6 +350,14 @@ body {
 .gps-warning[hidden] {
     display: none;
 }
+/* Neutral variant — GPS fix is fine, we just want the number visible.
+ * Uses a green tone so a yellow pill always reads as "warning". */
+.gps-warning.ok {
+    background: #d9f5df;
+    color: #1c6a34;
+    border-color: #58c078;
+    font-weight: 500;
+}
 /* Hide while drawing so it doesn't collide with the canvas hint at the same
  * bottom-left corner. The GPS check isn't useful mid-draw anyway. */
 .canvas-wrap.drawing .gps-warning {

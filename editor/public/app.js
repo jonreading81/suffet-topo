@@ -421,19 +421,24 @@ function renderDetail() {
     els.canvasWrap.classList.toggle('has-photo', !!b.photo);
     els.canvasEmpty.hidden = !!b.photo;
 
-    // GPS warning banner. Two flavours share the pill:
-    //   * no GPS in the photo at all — the boulder can't be placed on the map
-    //   * a fix exists but the reported accuracy is loose (>= flag threshold)
-    // Same visual as the PDF's warning pill on the boulder detail page.
+    // GPS badge over the photo. Three flavours share the pill:
+    //   * no GPS at all — amber warning, can't be placed on the map
+    //   * fix present but loose (≥ flag threshold) — amber warning
+    //   * fix present and tight — neutral info readout so climbers can see
+    //     the number without having to click through
     const acc = b.gpsAccuracy;
     const noGps = b.hasGps === false;
     const flagged = typeof acc === 'number' && acc >= GPS_ACCURACY_FLAG_M;
-    els.gpsWarning.hidden = !(noGps || flagged);
+    const showInfo = !noGps && !flagged && typeof acc === 'number';
+    els.gpsWarning.hidden = !(noGps || flagged || showInfo);
+    els.gpsWarning.classList.toggle('ok', showInfo);
     if (noGps) {
         els.gpsWarning.textContent = '⚠ No GPS data in photo — add coordinates or replace the image';
     } else if (flagged) {
         els.gpsWarning.textContent =
             `⚠ GPS ±${Math.round(acc)} m — low confidence, verify on map`;
+    } else if (showInfo) {
+        els.gpsWarning.textContent = `GPS ±${Math.round(acc)} m`;
     }
 
     // Rebuild the problems list. Simpler than surgical DOM updates and cheap
