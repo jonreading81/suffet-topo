@@ -64,7 +64,7 @@ def build_boulders(rows, photos_dir):
         problems = []
         for row in grp:
             grade = str(row.get("grade") or "").strip()
-            name = str(row.get("problem") or "").strip()
+            problem_name = str(row.get("problem") or "").strip()
             no = row.get("no")
             try:
                 no = int(no)
@@ -77,12 +77,12 @@ def build_boulders(rows, photos_dir):
             if project_cell:
                 project = project_cell in ("true", "1", "yes", "y")
             else:
-                project = grade.lower() == "project" or name.lower() == "project"
+                project = grade.lower() == "project" or problem_name.lower() == "project"
             color = "#000000" if project else LINE_PALETTE[(no - 1) % len(LINE_PALETTE)]
             problems.append(
                 {
                     "no": no,
-                    "name": name,
+                    "name": problem_name,
                     "grade": grade or "–",
                     "notes": str(row.get("notes") or "").strip(),
                     "notes_fr": str(row.get("notes_fr") or "").strip(),
