@@ -5,12 +5,25 @@ insertion order. GPS/altitude/bearing/accuracy come from each boulder's photo
 (EXIF), not the sheet.
 """
 import csv
+import json
 import math
 import os
 
 from .exif import read_gps
 from .lines import parse_line
 from .style import BRAND, CAMERA_OFFSET_M, LINE_PALETTE, REFUGE
+
+
+def _load_gallery(data_dir):
+    """Read data/gallery.json (boulder name → [filename, ...]). Returns an
+    empty dict if the file is missing or malformed."""
+    path = os.path.join(data_dir, "gallery.json")
+    try:
+        with open(path) as f:
+            obj = json.load(f)
+        return obj if isinstance(obj, dict) else {}
+    except Exception:
+        return {}
 
 
 def _offset_by_bearing(lat, lon, bearing_deg, distance_m):
@@ -43,8 +56,13 @@ def load_rows(sheet_path):
     return rows
 
 
-def build_boulders(rows, photos_dir):
+def build_boulders(rows, photos_dir, gallery_dir=None):
     """Group rows into boulders keyed by boulder name; attach GPS + rendered photo."""
+    # data/gallery.json lives one dir above photos_dir (both under data/).
+    data_root = os.path.dirname(os.path.abspath(photos_dir))
+    gallery_map = _load_gallery(data_root)
+    gallery_dir = gallery_dir or os.path.join(data_root, "gallery")
+
     order = []
     groups = {}
     for row in rows:
@@ -100,11 +118,18 @@ def build_boulders(rows, photos_dir):
             except Exception as e:
                 print("  EXIF fail", photo_file, e)
 
+        gallery_files = gallery_map.get(name, []) or []
+        gallery_paths = [
+            os.path.join(gallery_dir, f)
+            for f in gallery_files
+            if isinstance(f, str) and f
+        ]
         b = {
             "name": name,
             "photo": photo_file,
             "photo_path": photo_path,
             "problems": problems,
+            "gallery": [p for p in gallery_paths if os.path.exists(p)],
         }
         if gps:
             lat, lon = gps["lat"], gps["lon"]

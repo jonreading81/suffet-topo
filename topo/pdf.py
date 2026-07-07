@@ -504,6 +504,63 @@ def build_pdf(boulders, out_path, lang="en", clusters=None):
             c.setLineWidth(0.5)
             c.line(rx, last_baseline - 16, rx + rw, last_baseline - 16)
             yp = last_baseline - 38
+
+        # Gallery — up to three extra boulder photos rendered as a wide
+        # 3-column row anchored to the bottom of the page. Image widths are
+        # fixed by the column, heights are natural (aspect preserved) and
+        # each image sits bottom-aligned to the panel floor. The blue
+        # divider slides up to sit a fixed distance above the *tallest*
+        # image, so the header rides on the content rather than on a fixed
+        # baseline that leaves whitespace under short landscape photos.
+        gallery = (b.get("gallery") or [])[:3]
+        if gallery:
+            col_gap = 12
+            space_below_divider = 16   # divider → top of images
+            heading_to_divider = 12    # heading baseline → divider line
+            grid_w = W - 2 * M
+            cols = 3
+            thumb_w = (grid_w - col_gap * (cols - 1)) / cols
+            # Match the whitespace between header and the boulder photo
+            # (header bottom H-96, photo top H-130 → 34pt) so the page
+            # reads visually balanced top ↔ bottom.
+            footer_line = 44
+            panel_bottom = footer_line + 34
+            # Reserve headroom for the heading/divider block above the tallest
+            # image. Cap image heights so nothing overlaps the boulder photo.
+            panel_top_ceiling = py - 14
+            reserved_head = space_below_divider + heading_to_divider + 6
+            max_image_h = panel_top_ceiling - reserved_head - panel_bottom
+            if max_image_h > 30:
+                rendered = []
+                for img_path in gallery:
+                    try:
+                        im2 = Image.open(img_path)
+                        iw2, ih2 = im2.size
+                        scale = min(thumb_w / iw2, max_image_h / ih2)
+                        rendered.append((img_path, iw2 * scale, ih2 * scale))
+                    except Exception as e:
+                        print(f"  gallery photo error {img_path}: {e}")
+                if rendered:
+                    tallest = max(dh for _, _, dh in rendered)
+                    divider_y = panel_bottom + tallest + space_below_divider
+                    heading_y = divider_y + heading_to_divider
+                    c.setFillColor(INK)
+                    c.setFont(SERIF, 13)
+                    c.drawString(M, heading_y, L.get("gallery", "Gallery"))
+                    c.setStrokeColor(BLUE)
+                    c.setLineWidth(1.2)
+                    c.line(M, divider_y, M + grid_w, divider_y)
+                    for i, (img_path, dw, dh) in enumerate(rendered):
+                        dx = M + i * (thumb_w + col_gap)
+                        dy = panel_bottom
+                        c.drawImage(
+                            _rounded_reader(img_path, dw, dh),
+                            dx, dy, dw, dh, mask="auto",
+                        )
+                        c.setStrokeColor(LINE)
+                        c.setLineWidth(0.5)
+                        c.roundRect(dx, dy, dw, dh, CORNER_RADIUS_PT, fill=0, stroke=1)
+
         footer(page_num)
         c.showPage()
 

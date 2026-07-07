@@ -188,6 +188,88 @@ body {
     gap: 8px;
     margin-bottom: 12px;
 }
+
+/* Tabs — Problems vs Gallery. Sit above their panels with an underline
+ * accent on the active tab so the visual hierarchy stays flat. */
+.tab-bar {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--line);
+    margin: 20px 0 16px;
+}
+.tab-bar .tab {
+    background: transparent;
+    border: 0;
+    padding: 8px 14px;
+    color: var(--mut);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+}
+.tab-bar .tab:hover {
+    color: var(--ink);
+}
+.tab-bar .tab.active {
+    color: var(--blue);
+    border-bottom-color: var(--blue);
+}
+.tab-panel[hidden] { display: none; }
+
+/* Gallery panel — thumbnails grid + a scattered upload state. */
+.gallery {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.gallery-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.gallery-head h3 {
+    margin: 0;
+    flex: 1;
+}
+.gallery-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+}
+.gallery-list:empty { display: none; }
+.gallery-item {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    background: #eee center/cover no-repeat;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    overflow: hidden;
+}
+.gallery-item .del {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    border: 0;
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    font-size: 14px;
+    cursor: pointer;
+    line-height: 1;
+}
+.gallery-item .del:hover { background: rgba(0, 0, 0, 0.8); }
+.gallery-empty {
+    color: var(--mut);
+    padding: 20px 8px;
+    text-align: center;
+    border: 1px dashed var(--line);
+    border-radius: 6px;
+    font-size: 13px;
+}
+.gallery-list:not(:empty) + .gallery-empty { display: none; }
 .detail-actions {
     display: flex;
     justify-content: flex-end;

@@ -97,14 +97,49 @@
                         </div>
                     </div>
 
-                    <div class="problems">
-                        <div class="problems-head">
-                            <h3>Problems</h3>
-                            <button id="add-problem" class="btn btn-ghost" type="button">
-                                + Add problem
-                            </button>
+                    <nav class="tab-bar" role="tablist">
+                        <button
+                            class="tab active"
+                            type="button"
+                            data-tab="problems"
+                            role="tab"
+                            aria-selected="true"
+                        >Problems</button>
+                        <button
+                            class="tab"
+                            type="button"
+                            data-tab="gallery"
+                            role="tab"
+                            aria-selected="false"
+                        >Gallery</button>
+                    </nav>
+
+                    <div class="tab-panel" data-tab="problems">
+                        <div class="problems">
+                            <div class="problems-head">
+                                <h3>Problems</h3>
+                                <button id="add-problem" class="btn btn-ghost" type="button">
+                                    + Add problem
+                                </button>
+                            </div>
+                            <div id="problem-list" class="problem-list"></div>
                         </div>
-                        <div id="problem-list" class="problem-list"></div>
+                    </div>
+
+                    <div class="tab-panel" data-tab="gallery" hidden>
+                        <div class="gallery">
+                            <div class="gallery-head">
+                                <h3>Gallery</h3>
+                                <button id="add-gallery" class="btn btn-ghost" type="button">
+                                    + Add photo
+                                </button>
+                                <input id="gallery-input" type="file" accept="image/*,.heic,.heif" multiple hidden />
+                            </div>
+                            <div id="gallery-list" class="gallery-list"></div>
+                            <div id="gallery-empty" class="gallery-empty">
+                                No gallery photos yet.
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>

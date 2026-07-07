@@ -79,6 +79,12 @@ const els = {
     addProblem: $('#add-problem'),
     problemList: $('#problem-list'),
     tpl: $('#problem-row-tpl'),
+    tabs: document.querySelectorAll('.tab-bar .tab'),
+    tabPanels: document.querySelectorAll('.tab-panel'),
+    addGallery: $('#add-gallery'),
+    galleryInput: $('#gallery-input'),
+    galleryList: $('#gallery-list'),
+    galleryEmpty: $('#gallery-empty'),
 };
 
 // -----------------------------------------------------------------------------
@@ -121,6 +127,7 @@ async function saveAll() {
                 notes_fr: p.notes_fr || '',
                 line: p.line || '',
             })),
+            gallery: Array.isArray(b.gallery) ? b.gallery.filter(Boolean) : [],
         })),
     };
     const res = await fetch('/api/boulders', {
@@ -133,7 +140,8 @@ async function saveAll() {
         setStatus(`Save failed: ${err.error || res.status}`);
         return;
     }
-    const { removed = [], renamed = [] } = await res.json().catch(() => ({}));
+    const { removed = [], renamed = [], renamedGallery = [] } =
+        await res.json().catch(() => ({}));
 
     // Server may have renamed photos on disk to match new boulder names.
     // Apply those to state so the displayed image URL uses the new file.
@@ -143,6 +151,15 @@ async function saveAll() {
             if (b.photo && map.has(b.photo)) b.photo = map.get(b.photo);
         }
         state.photos = state.photos.map((p) => (map.has(p) ? map.get(p) : p));
+    }
+    if (renamedGallery.length) {
+        const gmap = new Map(renamedGallery.map((r) => [r.from, r.to]));
+        for (const b of state.boulders) {
+            if (!Array.isArray(b.gallery)) continue;
+            b.gallery = b.gallery.map((f) => (gmap.has(f) ? gmap.get(f) : f));
+        }
+    }
+    if (renamed.length || renamedGallery.length) {
         renderDetail();
         renderSidebar();
     }
@@ -459,7 +476,81 @@ function renderDetail() {
         els.problemList.append(buildProblemRow(p));
     }
     updateDrawingIndicators();
+    renderGallery();
 }
+
+function renderGallery() {
+    const b = selectedBoulder();
+    els.galleryList.innerHTML = '';
+    if (!b) return;
+    const files = Array.isArray(b.gallery) ? b.gallery : [];
+    els.galleryEmpty.hidden = files.length > 0;
+    for (const filename of files) {
+        const item = document.createElement('div');
+        item.className = 'gallery-item';
+        item.style.backgroundImage = `url('/gallery/${encodeURIComponent(filename)}')`;
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'del';
+        del.setAttribute('aria-label', 'Remove from gallery');
+        del.textContent = '×';
+        del.addEventListener('click', () => {
+            b.gallery = files.filter((f) => f !== filename);
+            markDirty();
+            renderGallery();
+        });
+        item.append(del);
+        els.galleryList.append(item);
+    }
+}
+
+function activateTab(name) {
+    for (const t of els.tabs) {
+        const on = t.dataset.tab === name;
+        t.classList.toggle('active', on);
+        t.setAttribute('aria-selected', on ? 'true' : 'false');
+    }
+    for (const p of els.tabPanels) {
+        p.hidden = p.dataset.tab !== name;
+    }
+}
+
+for (const t of els.tabs) {
+    t.addEventListener('click', () => activateTab(t.dataset.tab));
+}
+
+// Gallery upload — mirrors the boulder-photo upload flow but posts to
+// /api/gallery. Multiple files are accepted; each pushes onto the
+// current boulder's gallery array.
+els.addGallery.addEventListener('click', () => els.galleryInput.click());
+els.galleryInput.addEventListener('change', async () => {
+    const b = selectedBoulder();
+    const files = [...els.galleryInput.files];
+    els.galleryInput.value = '';
+    if (!b || !files.length) return;
+    els.addGallery.disabled = true;
+    try {
+        for (const file of files) {
+            const fd = new FormData();
+            fd.append('photo', file);
+            fd.append('boulderName', b.name || '');
+            const res = await fetch('/api/gallery', { method: 'POST', body: fd });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                setStatus(`Upload failed: ${err.error || res.status}`);
+                continue;
+            }
+            const { filename } = await res.json();
+            b.gallery = [...(b.gallery || []), filename];
+            renderGallery();
+            markDirty();
+        }
+        setStatus(`Uploaded ${files.length} to gallery`);
+        setTimeout(() => setStatus(''), 2000);
+    } finally {
+        els.addGallery.disabled = false;
+    }
+});
 
 function buildProblemRow(p) {
     const node = els.tpl.content.firstElementChild.cloneNode(true);
@@ -896,7 +987,7 @@ els.name.addEventListener('input', () => {
 });
 
 els.addBoulder.addEventListener('click', () => {
-    const b = { _id: uid(), name: 'New boulder', photo: '', problems: [] };
+    const b = { _id: uid(), name: 'New boulder', photo: '', problems: [], gallery: [] };
     state.boulders.push(b);
     state.selectedId = b._id;
     render();
