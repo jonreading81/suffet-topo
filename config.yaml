@@ -42,7 +42,7 @@ gps:
   # can shift the recorded (camera) position forward along the camera's
   # compass bearing to estimate where the boulder actually is. Only applied
   # when a bearing is present in the EXIF. Set to 0 to disable.
-  camera_offset_m: 4
+  camera_offset_m: 3
 
 # Bridges spanning the Ruisseau d'Ambin near the boulders. Rendered as small
 # brown crossbar markers on the cluster overview + detail maps so climbers

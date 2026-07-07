@@ -117,6 +117,8 @@ def build_pdf(boulders, out_path, lang="en", clusters=None):
     CARD = HexColor("#eef2f8")
     AMBER = HexColor("#B5751A")
     WARN = HexColor("#FAEEDA")
+    OK_TEXT = HexColor("#1c6a34")
+    OK_BG = HexColor("#d9f5df")
     M = 42
     SERIF = TITLE_FONT
     logo = ImageReader(os.path.join(ASSETS, "logo_white.png"))
@@ -431,9 +433,9 @@ def build_pdf(boulders, out_path, lang="en", clusters=None):
         meta(L["altitude"], b.get("alt_str", "–"), yr - 78)
         if b.get("acc") is not None:
             flagged = b["acc"] >= ACCURACY_FLAG_M
-            c.setFillColor(WARN if flagged else CARD)
-            c.roundRect(rx + 14, yr - mh + 14, rw - 28, 18, 9, fill=1, stroke=0)
-            c.setFillColor(AMBER if flagged else MUT)
+            c.setFillColor(WARN if flagged else OK_BG)
+            c.roundRect(rx + 14, yr - mh + 14, rw - 28, 18, 4, fill=1, stroke=0)
+            c.setFillColor(AMBER if flagged else OK_TEXT)
             msg = (L["gps_warn"] if flagged else L["gps_ok"]) % b["acc"]
             # Auto-shrink to fit the pill so longer translations (e.g. the FR
             # accuracy warning) don't overflow.
