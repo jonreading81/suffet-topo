@@ -26,6 +26,18 @@ def _load_gallery(data_dir):
         return {}
 
 
+def load_cluster_names(data_dir):
+    """Read data/clusters.json (cluster letter → user-defined name). Returns
+    an empty dict if the file is missing or malformed."""
+    path = os.path.join(data_dir, "clusters.json")
+    try:
+        with open(path) as f:
+            obj = json.load(f)
+        return obj if isinstance(obj, dict) else {}
+    except Exception:
+        return {}
+
+
 def _offset_by_bearing(lat, lon, bearing_deg, distance_m):
     """Shift (lat, lon) `distance_m` metres in the compass bearing direction
     (0° = north, clockwise). Uses the flat-earth approximation, which is

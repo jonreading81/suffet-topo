@@ -32,7 +32,7 @@ try:
 except Exception:
     pass
 
-from topo.data import build_boulders, cluster_by_lon_gap, load_rows
+from topo.data import build_boulders, cluster_by_lon_gap, load_cluster_names, load_rows
 from topo.html import build_html
 from topo.lines import render_boulder_photo
 from topo.pdf import build_pdf
@@ -128,6 +128,7 @@ def main():
     # Stamp the cluster letter on each boulder so downstream code (PDF pages)
     # can reference it.
     cluster_letters = "ABCDEFGHIJKL"
+    cluster_name_map = load_cluster_names(args.input)
     cluster_infos = []
     for idx, cluster in enumerate(clusters):
         letter = cluster_letters[idx]
@@ -142,6 +143,7 @@ def main():
         for b in cluster:
             b["_cluster_letter"] = letter
             b["_cluster_range"] = cluster_range
+        custom_name = str(cluster_name_map.get(letter) or "").strip()
         cluster_infos.append({
             "letter": letter,
             "range": cluster_range,
@@ -149,6 +151,7 @@ def main():
             "problem_count": problem_count,
             "lat": lat_c,
             "lon": lon_c,
+            "name": custom_name,
         })
     # Boulders with no GPS still deserve a mention in the legend but not on
     # any map — tag them so pdf.py can list them separately.

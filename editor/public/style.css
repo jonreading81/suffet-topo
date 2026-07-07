@@ -70,6 +70,91 @@ body {
     border-right: 1px solid var(--line);
     overflow-y: auto;
 }
+
+/* Sidebar tabs — Boulders / Clusters. Underline-accent style matches the
+ * detail-view tabs; sit sticky at the top of the sidebar. */
+.sidebar-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 8px 16px 0;
+    border-bottom: 1px solid var(--line);
+    position: sticky;
+    top: 0;
+    background: #fff;
+    z-index: 2;
+}
+.sidebar-tab {
+    background: transparent;
+    border: 0;
+    padding: 8px 12px;
+    color: var(--mut);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+}
+.sidebar-tab:hover { color: var(--ink); }
+.sidebar-tab.active {
+    color: var(--blue);
+    border-bottom-color: var(--blue);
+}
+.sidebar-panel[hidden] { display: none; }
+
+.cluster-help {
+    color: var(--mut);
+    font-size: 12px;
+    margin: 0;
+    padding: 4px 0;
+}
+.cluster-list {
+    list-style: none;
+    padding: 8px 16px 16px;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.cluster-item {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: grid;
+    grid-template-columns: 32px 1fr;
+    gap: 12px;
+    align-items: center;
+}
+.cluster-item .letter {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--blue);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+}
+.cluster-item .body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+.cluster-item input {
+    font-size: 14px;
+    padding: 6px 8px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--ink);
+    min-width: 0;
+}
+.cluster-item .sub {
+    color: var(--mut);
+    font-size: 12px;
+}
 .sidebar-header {
     display: flex;
     align-items: center;

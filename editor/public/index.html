@@ -43,13 +43,38 @@
 
         <main class="layout">
             <aside class="sidebar">
-                <div class="sidebar-header">
-                    <h2>Boulders</h2>
-                    <button id="add-boulder" class="btn btn-ghost" type="button">
-                        + Add boulder
-                    </button>
+                <nav class="sidebar-tabs" role="tablist">
+                    <button
+                        class="sidebar-tab active"
+                        type="button"
+                        data-tab="boulders"
+                        role="tab"
+                        aria-selected="true"
+                    >Boulders</button>
+                    <button
+                        class="sidebar-tab"
+                        type="button"
+                        data-tab="clusters"
+                        role="tab"
+                        aria-selected="false"
+                    >Clusters</button>
+                </nav>
+                <div class="sidebar-panel" data-tab="boulders">
+                    <div class="sidebar-header">
+                        <button id="add-boulder" class="btn btn-ghost" type="button">
+                            + Add boulder
+                        </button>
+                    </div>
+                    <ol id="boulder-list" class="boulder-list"></ol>
                 </div>
-                <ol id="boulder-list" class="boulder-list"></ol>
+                <div class="sidebar-panel" data-tab="clusters" hidden>
+                    <div class="sidebar-header">
+                        <p class="cluster-help">
+                            Named clusters appear as headings on the map + cluster pages of the PDF.
+                        </p>
+                    </div>
+                    <ol id="cluster-list" class="cluster-list"></ol>
+                </div>
             </aside>
 
             <section class="editor" id="editor">

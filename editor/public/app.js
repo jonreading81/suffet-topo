@@ -38,6 +38,9 @@ const state = {
     addingPoints: false,
     hoverPt: null,
     dirty: false,
+    // Cluster-letter → user-provided name. Missing / empty means the cluster
+    // falls back to the generic "Cluster A" label in the PDF.
+    clusterNames: {},
 };
 
 let uidSeq = 0;
@@ -85,6 +88,9 @@ const els = {
     galleryInput: $('#gallery-input'),
     galleryList: $('#gallery-list'),
     galleryEmpty: $('#gallery-empty'),
+    sidebarTabs: document.querySelectorAll('.sidebar-tab'),
+    sidebarPanels: document.querySelectorAll('.sidebar-panel'),
+    clusterList: $('#cluster-list'),
 };
 
 // -----------------------------------------------------------------------------
@@ -103,6 +109,9 @@ async function loadAll() {
         problems: (b.problems || []).map((p) => ({ _id: uid(), ...p })),
     }));
     state.photos = pRes.photos || [];
+    state.clusterNames = bRes.clusterNames && typeof bRes.clusterNames === 'object'
+        ? { ...bRes.clusterNames }
+        : {};
     if (state.boulders.length) {
         state.selectedId = state.boulders[0]._id;
     }
@@ -129,6 +138,7 @@ async function saveAll() {
             })),
             gallery: Array.isArray(b.gallery) ? b.gallery.filter(Boolean) : [],
         })),
+        clusterNames: state.clusterNames || {},
     };
     const res = await fetch('/api/boulders', {
         method: 'PUT',
@@ -517,6 +527,88 @@ function activateTab(name) {
 
 for (const t of els.tabs) {
     t.addEventListener('click', () => activateTab(t.dataset.tab));
+}
+
+// -----------------------------------------------------------------------------
+// Sidebar tabs — Boulders / Clusters
+// -----------------------------------------------------------------------------
+
+function activateSidebarTab(name) {
+    for (const t of els.sidebarTabs) {
+        const on = t.dataset.tab === name;
+        t.classList.toggle('active', on);
+        t.setAttribute('aria-selected', on ? 'true' : 'false');
+    }
+    for (const p of els.sidebarPanels) {
+        p.hidden = p.dataset.tab !== name;
+    }
+    if (name === 'clusters') renderClusters();
+}
+
+for (const t of els.sidebarTabs) {
+    t.addEventListener('click', () => activateSidebarTab(t.dataset.tab));
+}
+
+// Cluster the GPS-having boulders west→east by the two largest longitude
+// gaps (same algorithm as topo/data.py:cluster_by_lon_gap). Returns
+// [[boulder, ...], ...] ordered by longitude.
+function clusterByLonGap(boulders, n = 3) {
+    const withGps = boulders.filter((b) => typeof b.lon === 'number' && !isNaN(b.lon));
+    withGps.sort((a, b) => a.lon - b.lon);
+    if (withGps.length <= n) return withGps.map((b) => [b]).concat(
+        Array.from({ length: Math.max(0, n - withGps.length) }, () => [])
+    );
+    const gaps = [];
+    for (let k = 0; k < withGps.length - 1; k++) {
+        gaps.push({ gap: withGps[k + 1].lon - withGps[k].lon, k });
+    }
+    gaps.sort((a, b) => b.gap - a.gap);
+    const splits = gaps.slice(0, n - 1).map((g) => g.k).sort((a, b) => a - b);
+    const clusters = [];
+    let start = 0;
+    for (const k of splits) {
+        clusters.push(withGps.slice(start, k + 1));
+        start = k + 1;
+    }
+    clusters.push(withGps.slice(start));
+    return clusters;
+}
+
+function renderClusters() {
+    const clusters = clusterByLonGap(state.boulders, 3);
+    els.clusterList.innerHTML = '';
+    const letters = 'ABCDEFGH';
+    clusters.forEach((cluster, i) => {
+        const letter = letters[i];
+        const li = document.createElement('li');
+        li.className = 'cluster-item';
+
+        const badge = document.createElement('div');
+        badge.className = 'letter';
+        badge.textContent = letter;
+
+        const body = document.createElement('div');
+        body.className = 'body';
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.placeholder = `Cluster ${letter}`;
+        input.value = state.clusterNames[letter] || '';
+        input.addEventListener('input', () => {
+            state.clusterNames[letter] = input.value;
+            markDirty();
+        });
+        const sub = document.createElement('div');
+        sub.className = 'sub';
+        if (cluster.length) {
+            const names = cluster.map((b) => b.name || '(unnamed)').join(', ');
+            sub.textContent = `${cluster.length} boulder${cluster.length === 1 ? '' : 's'} · ${names}`;
+        } else {
+            sub.textContent = 'No boulders';
+        }
+        body.append(input, sub);
+        li.append(badge, body);
+        els.clusterList.append(li);
+    });
 }
 
 // Gallery upload — mirrors the boulder-photo upload flow but posts to

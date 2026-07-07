@@ -302,7 +302,15 @@ def build_pdf(boulders, out_path, lang="en", clusters=None):
             c.drawCentredString(col_letter_x, cy + 3 - 4.3, ci["letter"])
             c.setFillColor(INK)
             c.setFont(BODY_BOLD, 12)
-            c.drawString(col_range_x, cy, ci["range"])
+            primary = ci.get("name") or ci["range"]
+            c.drawString(col_range_x, cy, primary)
+            # If the cluster carries a custom name, tuck the id range after
+            # it in muted grey so the numeric identifier isn't lost.
+            if ci.get("name"):
+                w_prim = c.stringWidth(primary, BODY_BOLD, 12)
+                c.setFillColor(MUT)
+                c.setFont(BODY_FONT, 10)
+                c.drawString(col_range_x + w_prim + 8, cy, ci["range"])
             c.setFillColor(MUT)
             c.setFont(BODY_FONT, 10)
             n_b = len(ci["boulders"])
@@ -330,7 +338,8 @@ def build_pdf(boulders, out_path, lang="en", clusters=None):
     pg = 3
 
     def _cluster_page(ci, page_num):
-        header(f"Cluster {ci['letter']}", f"Boulders {ci['range']}")
+        title = ci.get("name") or f"Cluster {ci['letter']}"
+        header(title, f"Boulders {ci['range']}")
         cluster_map_path = os.path.join(out_dir, f"_map_cluster_{ci['letter']}.jpg")
         im2 = Image.open(cluster_map_path)
         iw2, ih2 = im2.size
