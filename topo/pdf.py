@@ -280,12 +280,11 @@ def build_pdf(boulders, out_path, lang="en", clusters=None):
         row_h = 34
         pad_h = 22
         r = 12
-        # Fixed column x-positions so every row's letter/range/count/grade
+        # Fixed column x-positions so every row's letter/name/problems/grade
         # line up in the same place regardless of text width.
         col_letter_x = M + r
         col_range_x = M + 2 * r + 12
-        col_boulder_x = M + int(cw * 0.40)
-        col_problem_x = M + int(cw * 0.60)
+        col_problem_x = M + int(cw * 0.55)
         col_grade_x = M + int(cw * 0.82)
         for idx, ci in enumerate(clusters):
             cy = ly - idx * row_h
@@ -313,9 +312,7 @@ def build_pdf(boulders, out_path, lang="en", clusters=None):
                 c.drawString(col_range_x + w_prim + 8, cy, ci["range"])
             c.setFillColor(MUT)
             c.setFont(BODY_FONT, 10)
-            n_b = len(ci["boulders"])
             n_p = ci["problem_count"]
-            c.drawString(col_boulder_x, cy, f"{n_b} boulder{'s' if n_b != 1 else ''}")
             c.drawString(col_problem_x, cy, f"{n_p} problem{'s' if n_p != 1 else ''}")
             all_problems = [p for b in ci["boulders"] for p in b["problems"]]
             grade_str = _grade_range(all_problems, L["project_grade"])
