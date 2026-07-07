@@ -455,27 +455,33 @@ def build_pdf(boulders, out_path, lang="en", clusters=None):
             col = HexColor(p["color"])
             # Align circle centre with the name's cap-height mid (Helvetica-
             # Bold 10.5pt) so the number, name, and grade share one baseline.
+            # Projects use the same filled-circle treatment; their palette
+            # colour is just black so they read as "unclimbed" at a glance.
             circle_cy = yp + 3.8
-            if p["project"]:
-                c.setFillColor(HexColor("#ffffff"))
-                c.setStrokeColor(col)
-                c.setLineWidth(2)
-                c.circle(rx + r, circle_cy, r, fill=1, stroke=1)
-                c.setFillColor(col)
-            else:
-                c.setFillColor(col)
-                c.circle(rx + r, circle_cy, r, fill=1, stroke=0)
-                c.setFillColor(HexColor("#ffffff"))
+            c.setFillColor(col)
+            c.circle(rx + r, circle_cy, r, fill=1, stroke=0)
+            c.setFillColor(HexColor("#ffffff"))
             c.setFont(BODY_BOLD, 8)
             # 8pt Helvetica-Bold cap height ≈ 5.75; half = 2.87.
             c.drawCentredString(rx + r, circle_cy - 2.87, str(p["no"]))
             c.setFillColor(INK)
             c.setFont(BODY_BOLD, 10.5)
             c.drawString(rx + 24, yp, p["name"])
-            c.setFillColor(LAV if p["project"] else BLUE)
+            # Grade cell: blue like a regular problem for climbed lines, dark
+            # grey for projects (the grade is only proposed) — no trailing "?"
+            # since the muted colour already signals "unconfirmed".
+            grade_val = (p.get("grade") or "").strip()
+            grade_val = "" if grade_val == "–" else grade_val
+            if p["project"]:
+                # Projects wrap the (proposed) grade in parentheses and use
+                # a soft grey — the shape and colour both flag "unconfirmed".
+                c.setFillColor(HexColor("#6a6a6a"))
+                grade_text = f"({grade_val})" if grade_val else "(–)"
+            else:
+                c.setFillColor(BLUE)
+                grade_text = grade_val or "–"
             c.setFont(BODY_BOLD, 10)
-            grade = L["project_grade"] if p["project"] else p["grade"]
-            c.drawRightString(rx + rw, yp, grade)
+            c.drawRightString(rx + rw, yp, grade_text)
             c.setFillColor(MUT)
             c.setFont(BODY_FONT, 9)
             beta = p["notes_fr"] if lang == "fr" and p.get("notes_fr") else p["notes"]

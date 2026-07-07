@@ -3,8 +3,11 @@
 // the standalone annotator's HTML, because we want the same in-page flow for
 // adding + editing.
 
+// "Project" was previously a grade string; it's now a separate checkbox on
+// the row so a project can carry its own *proposed* grade if the climber has
+// one in mind. See the `.p-project` input in the template + save handler.
 const GRADES = [
-    'Project',
+    '',
     '3', '3+', '4', '5',
     '6A', '6A+', '6B', '6B+', '6C', '6C+',
     '7A', '7A+', '7B', '7B+', '7C', '7C+',
@@ -113,6 +116,7 @@ async function saveAll() {
                 no: Number(p.no) || 0,
                 problem: p.problem || '',
                 grade: p.grade || '',
+                project: !!p.project,
                 notes: p.notes || '',
                 notes_fr: p.notes_fr || '',
                 line: p.line || '',
@@ -185,6 +189,13 @@ function selectedBoulder() {
 function colorFor(no) {
     if (!no || no < 1) return LINE_PALETTE[0];
     return LINE_PALETTE[(no - 1) % LINE_PALETTE.length];
+}
+
+// The colour we use for a problem's line / marker / card border. Projects
+// always render in black so they read as "unclimbed"; everything else cycles
+// through LINE_PALETTE by the problem number.
+function accentColor(p) {
+    return p.project ? '#000000' : colorFor(p.no);
 }
 
 // Normalise boulder names for duplicate detection — trim + lowercase so
@@ -500,13 +511,14 @@ function buildProblemRow(p) {
     const nInput = node.querySelector('.p-no');
     const nameInput = node.querySelector('.p-name');
     const gradeSel = node.querySelector('.p-grade');
+    const projectCheck = node.querySelector('.p-project');
     const notes = node.querySelector('.p-notes');
     const notesFr = node.querySelector('.p-notes-fr');
 
     // Colour the whole card's border (and the active pencil button) to match
     // this problem's line — visual hook so the card and its drawn line share
     // the same identity. --accent is picked up by CSS.
-    node.style.setProperty('--accent', colorFor(p.no));
+    node.style.setProperty('--accent', accentColor(p));
     nInput.value = p.no;
     nameInput.value = p.problem || '';
     for (const g of GRADES) {
@@ -518,10 +530,11 @@ function buildProblemRow(p) {
     }
     notes.value = p.notes || '';
     notesFr.value = p.notes_fr || '';
+    projectCheck.checked = !!p.project;
 
     nInput.addEventListener('input', () => {
         p.no = parseInt(nInput.value) || 0;
-        node.style.setProperty('--accent', colorFor(p.no));
+        node.style.setProperty('--accent', accentColor(p));
         renderOverlay();
         renderSidebar();
         markDirty();
@@ -532,6 +545,12 @@ function buildProblemRow(p) {
     });
     gradeSel.addEventListener('change', () => {
         p.grade = gradeSel.value;
+        markDirty();
+    });
+    projectCheck.addEventListener('change', () => {
+        p.project = projectCheck.checked;
+        node.style.setProperty('--accent', accentColor(p));
+        renderOverlay();
         markDirty();
     });
     notes.addEventListener('input', () => {
@@ -656,8 +675,7 @@ function smoothPath(pts) {
 }
 
 function drawLine(p, pts, active) {
-    const color = colorFor(p.no);
-    const project = (p.grade || '').toLowerCase() === 'project';
+    const color = accentColor(p);
 
     // While drawing this line — AND only after the user has explicitly
     // committed to adding points — append the cursor position so the
@@ -698,7 +716,7 @@ function drawLine(p, pts, active) {
         line.setAttribute('stroke-linecap', 'round');
         line.setAttribute('stroke-linejoin', 'round');
         line.setAttribute('vector-effect', 'non-scaling-stroke');
-        if (project) line.setAttribute('stroke-dasharray', '6 5');
+        if (p.project) line.setAttribute('stroke-dasharray', '6 5');
         line.style.strokeWidth = '3px';
         els.overlay.append(line);
     }
@@ -717,9 +735,9 @@ function drawLine(p, pts, active) {
     marker.setAttribute('cx', first.x);
     marker.setAttribute('cy', first.y);
     marker.setAttribute('r', r);
-    marker.setAttribute('fill', project ? '#ffffff' : color);
+    marker.setAttribute('fill', color);
     marker.setAttribute('stroke', color);
-    marker.setAttribute('stroke-width', project ? 0.6 : 0);
+    marker.setAttribute('stroke-width', 0);
     els.overlay.append(marker);
 
     const label = noPointer(document.createElementNS(SVG_NS, 'text'));
@@ -730,7 +748,7 @@ function drawLine(p, pts, active) {
     label.setAttribute('font-family', 'Helvetica, Arial, sans-serif');
     label.setAttribute('font-weight', 'bold');
     label.setAttribute('font-size', '2.5');
-    label.setAttribute('fill', project ? color : '#ffffff');
+    label.setAttribute('fill', '#ffffff');
     label.textContent = String(p.no);
     els.overlay.append(label);
 
@@ -896,6 +914,7 @@ els.addProblem.addEventListener('click', () => {
         no: nextNo,
         problem: '',
         grade: '',
+        project: false,
         notes: '',
         notes_fr: '',
         line: '',

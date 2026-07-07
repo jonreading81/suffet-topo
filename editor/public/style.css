@@ -513,6 +513,18 @@ body {
     flex: 1;
     min-width: 0;
 }
+/* Project field — label sits in the shared 72px column like every other
+ * row label; the checkbox itself doesn't stretch, it sits at the start of
+ * the input area so it lines up vertically with the other inputs. */
+.problem-row .row-top .field-inline.p-project-field {
+    align-items: center;
+}
+.problem-row .row-top .field-inline.p-project-field > input {
+    flex: 0 0 auto;
+    width: 16px;
+    height: 16px;
+    margin: 0;
+}
 .problem-row .row-notes {
     display: grid;
     grid-template-columns: 1fr;

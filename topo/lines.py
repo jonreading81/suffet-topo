@@ -108,39 +108,31 @@ def render_boulder_photo(photo_path, problems, max_px=1100):
         if len(pts) < 2:
             continue
         cu = catmull(pts)
-        col = hx(p["color"])
+        # Projects render in dashed black over a solid white halo, so they
+        # read as "unclimbed" at a glance without needing a separate colour
+        # from the palette. Everything else is a solid coloured line.
+        col = (0, 0, 0) if p["project"] else hx(p["color"])
+        d.line(cu, fill=(255, 255, 255, 210), width=halo, joint="curve")
         if p["project"]:
-            draw_dashed(d, cu, (255, 255, 255, 210), halo, int(base * 0.03), int(base * 0.02))
             draw_dashed(d, cu, col + (255,), lw, int(base * 0.03), int(base * 0.02))
         else:
-            d.line(cu, fill=(255, 255, 255, 210), width=halo, joint="curve")
             d.line(cu, fill=col + (255,), width=lw, joint="curve")
         # Anchor the numbered marker at the bottom-most point of the line
         # (image Y grows downward, so the largest Y is visually lowest).
         # Climbing topos conventionally number at the start of the climb.
         x0, y0 = max(pts, key=lambda pt: pt[1])
-        if p["project"]:
-            d.ellipse(
-                [x0 - r, y0 - r, x0 + r, y0 + r],
-                fill=(255, 255, 255, 235),
-                outline=col + (255,),
-                width=max(3, int(base * 0.008)),
-            )
-            tcol = col + (255,)
-        else:
-            d.ellipse(
-                [x0 - r, y0 - r, x0 + r, y0 + r],
-                fill=col + (255,),
-                outline=(255, 255, 255, 255),
-                width=max(2, int(base * 0.006)),
-            )
-            tcol = (255, 255, 255, 255)
+        d.ellipse(
+            [x0 - r, y0 - r, x0 + r, y0 + r],
+            fill=col + (255,),
+            outline=(255, 255, 255, 255),
+            width=max(2, int(base * 0.006)),
+        )
         no = str(p["no"])
         tb = d.textbbox((0, 0), no, font=fnt)
         d.text(
             (x0 - (tb[2] - tb[0]) / 2, y0 - (tb[3] - tb[1]) / 2 - tb[1]),
             no,
-            fill=tcol,
+            fill=(255, 255, 255, 255),
             font=fnt,
         )
     if max_px:
