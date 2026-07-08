@@ -158,7 +158,7 @@ def build_pdf(boulders, out_path, lang="en", clusters=None):
     SERIF = TITLE_FONT
     logo = ImageReader(os.path.join(ASSETS, "logo_white.png"))
 
-    def header(t, s, number=None):
+    def header(t, s, number=None, subtitle_prefix=None):
         c.setFillColor(BLUE)
         c.rect(0, H - 96, W, 96, fill=1, stroke=0)
         lw2 = 42 * 806 / 306
@@ -167,24 +167,27 @@ def build_pdf(boulders, out_path, lang="en", clusters=None):
         if number is not None:
             # Brand-blue circle with white ring + white digit, sitting on
             # the title's cap-height midline just left of the name.
-            circ_r = 12
+            circ_r = 10
             circ_cx = M + circ_r
             circ_cy = H - 52 + 6
             c.setFillColor(BLUE)
             c.setStrokeColor(HexColor("#ffffff"))
-            c.setLineWidth(1.4)
+            c.setLineWidth(1.2)
             c.circle(circ_cx, circ_cy, circ_r, fill=1, stroke=1)
             c.setFillColor(HexColor("#ffffff"))
-            c.setFont(BODY_BOLD, 12)
+            c.setFont(BODY_BOLD, 10)
             # Baseline offset so digit sits on circle's optical centre.
-            c.drawCentredString(circ_cx, circ_cy - 4.3, str(number))
+            c.drawCentredString(circ_cx, circ_cy - 3.6, str(number))
             title_x = M + 2 * circ_r + 10
         c.setFillColor(HexColor("#ffffff"))
         c.setFont(SERIF, 21)
         c.drawString(title_x, H - 52, t)
+        # Cluster prefix (if any) leads the subtitle line in exactly the
+        # same style as the coordinates so the whole line reads as one.
         c.setFont(BODY_FONT, 10.5)
         c.setFillColor(HexColor("#cfe0ea"))
-        c.drawString(M, H - 72, s)
+        line = f"{subtitle_prefix}  ·  {s}" if subtitle_prefix else s
+        c.drawString(M, H - 72, line)
 
     def footer(p):
         c.setStrokeColor(LINE)
@@ -432,11 +435,15 @@ def build_pdf(boulders, out_path, lang="en", clusters=None):
         footer(page_num)
         c.showPage()
 
-    def _boulder_page(b, page_num):
+    def _boulder_page(b, page_num, cluster=None):
+        prefix = None
+        if cluster:
+            prefix = cluster.get("name") or f"Cluster {cluster['letter']}"
         header(
             b["name"],
             f"{b['lat']:.5f}°N, {b['lon']:.5f}°E  ·  {b.get('alt_str', '')}",
             number=b["id"],
+            subtitle_prefix=prefix,
         )
         im = Image.open(b["_render"])
         iw, ih = im.size
@@ -611,7 +618,7 @@ def build_pdf(boulders, out_path, lang="en", clusters=None):
             _cluster_page(ci, pg)
             pg += 1
             for b in ci["boulders"]:
-                _boulder_page(b, pg)
+                _boulder_page(b, pg, cluster=ci)
                 pg += 1
         for b in [b for b in boulders if not b.get("_has_gps")]:
             _boulder_page(b, pg)
