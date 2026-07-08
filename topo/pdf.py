@@ -472,7 +472,7 @@ def build_pdf(boulders, out_path, lang="en", clusters=None):
             while c.stringWidth(msg, BODY_BOLD, fsize) > avail and fsize > 6:
                 fsize -= 0.25
             c.setFont(BODY_BOLD, fsize)
-            c.drawString(chip_x + 10, chip_y + 6, msg)
+            c.drawCentredString(chip_x + chip_w / 2, chip_y + 6, msg)
 
         rx = M + pw + 26
         rw = W - M - rx

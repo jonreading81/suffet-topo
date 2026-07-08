@@ -499,8 +499,7 @@ function renderDetail() {
     if (noGps) {
         els.gpsWarning.textContent = '⚠ No GPS data in photo — add coordinates or replace the image';
     } else if (flagged) {
-        els.gpsWarning.textContent =
-            `⚠ GPS ±${Math.round(acc)} m — low confidence, verify on map`;
+        els.gpsWarning.textContent = `⚠ GPS ±${Math.round(acc)} m`;
     } else if (showInfo) {
         els.gpsWarning.textContent = `GPS ±${Math.round(acc)} m`;
     }
