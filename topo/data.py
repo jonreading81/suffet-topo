@@ -87,6 +87,19 @@ def load_cluster_assignments(data_dir):
         return {}
 
 
+def load_cluster_access(data_dir):
+    """Read data/cluster_access.json (cluster letter → {en, fr} short
+    access-directions text). Returns an empty dict if the file is missing
+    or malformed."""
+    path = os.path.join(data_dir, "cluster_access.json")
+    try:
+        with open(path) as f:
+            obj = json.load(f)
+        return obj if isinstance(obj, dict) else {}
+    except Exception:
+        return {}
+
+
 def _offset_by_bearing(lat, lon, bearing_deg, distance_m):
     """Shift (lat, lon) `distance_m` metres in the compass bearing direction
     (0° = north, clockwise). Uses the flat-earth approximation, which is

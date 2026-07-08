@@ -35,6 +35,7 @@ except Exception:
 from topo.data import (
     build_boulders,
     cluster_by_lon_gap,
+    load_cluster_access,
     load_cluster_assignments,
     load_cluster_names,
     load_rows,
@@ -138,6 +139,7 @@ def main():
     # can reference it.
     cluster_letters = "ABCDEFGHIJKL"
     cluster_name_map = load_cluster_names(args.input)
+    cluster_access_map = load_cluster_access(args.input)
     cluster_infos = []
     for idx, cluster in enumerate(clusters):
         letter = cluster_letters[idx]
@@ -153,6 +155,7 @@ def main():
             b["_cluster_letter"] = letter
             b["_cluster_range"] = cluster_range
         custom_name = str(cluster_name_map.get(letter) or "").strip()
+        access = cluster_access_map.get(letter) or {}
         cluster_infos.append({
             "letter": letter,
             "range": cluster_range,
@@ -161,6 +164,7 @@ def main():
             "lat": lat_c,
             "lon": lon_c,
             "name": custom_name,
+            "access": access if isinstance(access, dict) else {},
         })
     # Boulders with no GPS still deserve a mention in the legend but not on
     # any map — tag them so pdf.py can list them separately.

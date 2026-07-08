@@ -196,6 +196,104 @@ body {
     font-style: italic;
     padding: 4px 6px;
 }
+.cluster-item .cluster-access {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 4px;
+}
+.cluster-item .cluster-access-field {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.cluster-item .cluster-access-field span {
+    color: var(--mut);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+.cluster-item .cluster-access-field textarea {
+    width: 100%;
+    resize: vertical;
+    padding: 6px 8px;
+    font-size: 12px;
+    font-family: inherit;
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: #fff;
+    line-height: 1.35;
+    box-sizing: border-box;
+}
+
+/* Cluster access forms live inside the Access sidebar tab, below the
+ * gallery. One card per cluster with the letter badge + EN/FR
+ * textareas. */
+.cluster-access-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 4px 16px 16px;
+}
+.cluster-access-entry {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.cluster-access-entry-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.cluster-access-entry-head .letter {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--blue);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 13px;
+}
+.cluster-access-entry-head .title {
+    font-weight: 600;
+    color: var(--ink);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.cluster-access-entry .cluster-access-field {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.cluster-access-entry .cluster-access-field span {
+    color: var(--mut);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+.cluster-access-entry .cluster-access-field textarea {
+    width: 100%;
+    resize: vertical;
+    padding: 6px 8px;
+    font-size: 12px;
+    font-family: inherit;
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: #fff;
+    line-height: 1.35;
+    box-sizing: border-box;
+}
 
 /* Getting-there tab: two labelled textareas that fill the sidebar column. */
 .getting-there {

@@ -41,6 +41,8 @@ const state = {
     // Cluster-letter → user-provided name. Missing / empty means the cluster
     // falls back to the generic "Cluster A" label in the PDF.
     clusterNames: {},
+    // Cluster-letter → { en, fr } access-directions text.
+    clusterAccess: {},
     // Getting-there prose per language, edited in the Getting There tab.
     gettingThere: { en: '', fr: '' },
 };
@@ -99,6 +101,7 @@ const els = {
     gtGalleryInput: $('#gt-gallery-input'),
     gtGalleryList: $('#gt-gallery-list'),
     gtGalleryEmpty: $('#gt-gallery-empty'),
+    clusterAccessList: $('#cluster-access-list'),
 };
 
 // -----------------------------------------------------------------------------
@@ -120,6 +123,9 @@ async function loadAll() {
     state.clusterNames = bRes.clusterNames && typeof bRes.clusterNames === 'object'
         ? { ...bRes.clusterNames }
         : {};
+    state.clusterAccess = bRes.clusterAccess && typeof bRes.clusterAccess === 'object'
+        ? { ...bRes.clusterAccess }
+        : {};
     state.gettingThere = bRes.gettingThere && typeof bRes.gettingThere === 'object'
         ? { en: '', fr: '', ...bRes.gettingThere }
         : { en: '', fr: '' };
@@ -127,6 +133,7 @@ async function loadAll() {
     els.gtFr.value = state.gettingThere.fr || '';
     if (!Array.isArray(state.gettingThere.gallery)) state.gettingThere.gallery = [];
     renderGettingThereGallery();
+    renderClusterAccessList();
     if (state.boulders.length) {
         state.selectedId = state.boulders[0]._id;
     }
@@ -155,6 +162,7 @@ async function saveAll() {
             cluster: typeof b.cluster === 'string' ? b.cluster : '',
         })),
         clusterNames: state.clusterNames || {},
+        clusterAccess: state.clusterAccess || {},
         gettingThere: state.gettingThere || {},
     };
     const res = await fetch('/api/boulders', {
@@ -631,6 +639,7 @@ function activateSidebarTab(name) {
         p.hidden = p.dataset.tab !== name;
     }
     if (name === 'clusters') renderClusters();
+    if (name === 'getting-there') renderClusterAccessList();
 }
 
 for (const t of els.sidebarTabs) {
@@ -893,6 +902,52 @@ function renderClusters() {
         body.append(input, chips);
         li.append(badge, body);
         els.clusterList.append(li);
+    });
+    // Re-render the Access tab too so its cluster headings + assigned
+    // boulder-count summaries stay in sync when boulders are moved.
+    renderClusterAccessList();
+}
+
+// Cluster access forms live inside the "Access" (formerly Getting There)
+// sidebar tab, one card per cluster with EN + FR textareas.
+function renderClusterAccessList() {
+    if (!els.clusterAccessList) return;
+    const clusters = clusterByLonGap(state.boulders, 3);
+    const letters = 'ABCDEFGH';
+    els.clusterAccessList.innerHTML = '';
+    clusters.forEach((cluster, i) => {
+        const letter = letters[i];
+        const entry = document.createElement('div');
+        entry.className = 'cluster-access-entry';
+        const head = document.createElement('div');
+        head.className = 'cluster-access-entry-head';
+        const badge = document.createElement('span');
+        badge.className = 'letter';
+        badge.textContent = letter;
+        const title = document.createElement('span');
+        title.className = 'title';
+        title.textContent = (state.clusterNames[letter] || `Cluster ${letter}`);
+        head.append(badge, title);
+        entry.append(head);
+        const access = state.clusterAccess[letter] || {};
+        for (const [lang, label] of [['en', 'English'], ['fr', 'French']]) {
+            const wrap = document.createElement('label');
+            wrap.className = 'cluster-access-field';
+            const cap = document.createElement('span');
+            cap.textContent = label;
+            const ta = document.createElement('textarea');
+            ta.rows = 6;
+            ta.value = access[lang] || '';
+            ta.placeholder = `Access notes (${label})`;
+            ta.addEventListener('input', () => {
+                if (!state.clusterAccess[letter]) state.clusterAccess[letter] = {};
+                state.clusterAccess[letter][lang] = ta.value;
+                markDirty();
+            });
+            wrap.append(cap, ta);
+            entry.append(wrap);
+        }
+        els.clusterAccessList.append(entry);
     });
 }
 

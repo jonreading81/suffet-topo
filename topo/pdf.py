@@ -253,7 +253,7 @@ def build_pdf(boulders, out_path, lang="en", clusters=None, data_dir=None):
         prose_h = sum(len(p) * line_h for p in wrapped) + para_gap * max(
             0, len(wrapped) - 1
         )
-        heading_block_h = 26  # heading baseline + accent underline + gap
+        heading_block_h = 36  # heading baseline + accent underline + gap
         card_h = pady + heading_block_h + prose_h + pady
 
         card_top = y_after_maps
@@ -277,7 +277,7 @@ def build_pdf(boulders, out_path, lang="en", clusters=None, data_dir=None):
         c.line(M + padx, hy - 16, M + padx + 44, hy - 16)
 
         # Prose
-        py = hy - 30
+        py = hy - 40
         c.setFillColor(INK)
         c.setFont(BODY_FONT, 10)
         for lines in wrapped:
@@ -453,6 +453,83 @@ def build_pdf(boulders, out_path, lang="en", clusters=None, data_dir=None):
         c.drawString(M, mtop - hh - 12, L["map_caption"])
 
         ly2 = mtop - hh - 40
+
+        # Access block — same soft-card visual language as the Getting There
+        # section on page 1: pale card background, blue accent bar on the
+        # left, blue heading with a short accent underline, INK prose.
+        access_text = (ci.get("access") or {}).get(lang, "")
+        access_text = access_text.strip() if isinstance(access_text, str) else ""
+        if access_text:
+            padx, pady = 16, 14
+            card_w = W - 2 * M
+            content_w = card_w - 2 * padx
+            line_h = 14
+            para_gap = 8
+            wrapped = []
+            for para in access_text.split("\n\n"):
+                words = para.split()
+                lines = []
+                ln = ""
+                for wd in words:
+                    if c.stringWidth(ln + " " + wd, BODY_FONT, 10) < content_w:
+                        ln = (ln + " " + wd).strip()
+                    else:
+                        if ln:
+                            lines.append(ln)
+                        ln = wd
+                if ln:
+                    lines.append(ln)
+                wrapped.append(lines)
+            prose_h = sum(len(p) * line_h for p in wrapped) + para_gap * max(
+                0, len(wrapped) - 1
+            )
+            heading_block_h = 36
+            card_h = pady + heading_block_h + prose_h + pady
+            card_top = mtop - hh - 22
+            card_bottom = card_top - card_h
+            c.setFillColor(CARD)
+            c.roundRect(M, card_bottom, card_w, card_h, 10, fill=1, stroke=0)
+            c.setFillColor(BLUE)
+            c.roundRect(M, card_bottom, 4, card_h, 2, fill=1, stroke=0)
+            hy = card_top - pady - 4
+            c.setFillColor(BLUE)
+            c.setFont(SERIF, 13)
+            c.drawString(M + padx, hy - 10, L.get("access_heading", "Access"))
+            c.setStrokeColor(BLUE)
+            c.setLineWidth(1.2)
+            c.line(M + padx, hy - 16, M + padx + 44, hy - 16)
+            yp_a = hy - 40
+            c.setFillColor(INK)
+            c.setFont(BODY_FONT, 10)
+            for lines in wrapped:
+                for ln in lines:
+                    c.drawString(M + padx, yp_a, ln)
+                    yp_a -= line_h
+                yp_a -= para_gap
+            ly2 = card_bottom - 20
+
+        # Anchor the whole "Boulders" block to the bottom of the page so
+        # the bottom edge of the last row sits just above the footer. Pick
+        # a column count that actually fits below the access card / map;
+        # start at 1 col and add columns until the block clears its top
+        # ceiling.
+        row_h_c = 24
+        rr = 7
+        footer_top = 60
+        n_b = len(ci["boulders"])
+        ly2_ceiling = ly2  # ly2 was set above (access card bottom or map bottom - 40)
+        for candidate_cols in (1, 2, 3):
+            rows_per_col = (n_b + candidate_cols - 1) // candidate_cols
+            block_h = 40 + rows_per_col * row_h_c
+            proposed_ly2 = footer_top + block_h
+            if proposed_ly2 <= ly2_ceiling:
+                n_cols = candidate_cols
+                break
+        else:
+            n_cols = 3
+            rows_per_col = (n_b + n_cols - 1) // n_cols
+            block_h = 40 + rows_per_col * row_h_c
+        ly2 = min(footer_top + block_h, ly2_ceiling)
         c.setFillColor(INK)
         c.setFont(SERIF, 13)
         c.drawString(M, ly2, L["boulders_heading"])
@@ -461,13 +538,6 @@ def build_pdf(boulders, out_path, lang="en", clusters=None, data_dir=None):
         c.setLineWidth(1.2)
         c.line(M, ly2, W - M, ly2)
         ly2 -= 30
-        row_h_c = 24
-        rr = 7
-        footer_top = 60
-        avail_h = ly2 - footer_top
-        rows_per_col = max(1, int(avail_h // row_h_c))
-        n_cols = max(1, (len(ci["boulders"]) + rows_per_col - 1) // rows_per_col)
-        rows_per_col = (len(ci["boulders"]) + n_cols - 1) // n_cols
         col_gap = 20
         col_w = (cw - col_gap * (n_cols - 1)) / n_cols
         name_font_size = 11 if n_cols == 1 else (10 if n_cols == 2 else 9)
