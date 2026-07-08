@@ -88,6 +88,20 @@ def labels(lang):
     return LABELS[lang]
 
 
-def getting_there(lang):
-    """Return the multi-paragraph getting-there prose for `lang`, or ''."""
+def getting_there(lang, data_dir=None):
+    """Return the multi-paragraph getting-there prose for `lang`, or ''.
+    Checks `data/getting_there.json` first (edited via the SPA editor);
+    falls back to the `getting_there.<lang>` block in `config.yaml`."""
+    if data_dir:
+        override_path = os.path.join(data_dir, "getting_there.json")
+        try:
+            import json
+            with open(override_path) as f:
+                obj = json.load(f)
+            if isinstance(obj, dict):
+                val = obj.get(lang)
+                if isinstance(val, str) and val.strip():
+                    return val.strip()
+        except Exception:
+            pass
     return GETTING_THERE.get(lang, "").strip()

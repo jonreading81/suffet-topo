@@ -226,7 +226,7 @@ def main():
             args.output, f"refuge-du-suffet-boulders{suffix}.pdf"
         )
         print(f"Building PDF ({lang}) -> {os.path.basename(pdf_path)}")
-        build_pdf(boulders, pdf_path, lang=lang, clusters=cluster_infos)
+        build_pdf(boulders, pdf_path, lang=lang, clusters=cluster_infos, data_dir=args.input)
 
     if args.no_html:
         print("Skipping offline HTML (--no-html).")

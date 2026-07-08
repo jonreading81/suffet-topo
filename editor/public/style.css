@@ -196,6 +196,35 @@ body {
     font-style: italic;
     padding: 4px 6px;
 }
+
+/* Getting-there tab: two labelled textareas that fill the sidebar column. */
+.getting-there {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 8px 16px 16px;
+}
+.getting-there .field span {
+    color: var(--mut);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+    display: block;
+}
+.getting-there textarea {
+    width: 100%;
+    resize: vertical;
+    padding: 8px 10px;
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: #fff;
+    line-height: 1.4;
+    box-sizing: border-box;
+}
 .sidebar-header {
     display: flex;
     align-items: center;

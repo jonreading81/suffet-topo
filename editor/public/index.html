@@ -58,6 +58,13 @@
                         role="tab"
                         aria-selected="false"
                     >Clusters</button>
+                    <button
+                        class="sidebar-tab"
+                        type="button"
+                        data-tab="getting-there"
+                        role="tab"
+                        aria-selected="false"
+                    >Getting there</button>
                 </nav>
                 <div class="sidebar-panel" data-tab="boulders">
                     <div class="sidebar-header">
@@ -74,6 +81,36 @@
                         </p>
                     </div>
                     <ol id="cluster-list" class="cluster-list"></ol>
+                </div>
+                <div class="sidebar-panel" data-tab="getting-there" hidden>
+                    <div class="sidebar-header">
+                        <p class="cluster-help">
+                            Directions shown on page 1 of the PDF. Blank lines split paragraphs.
+                        </p>
+                    </div>
+                    <div class="getting-there">
+                        <label class="field">
+                            <span>English</span>
+                            <textarea id="gt-en" rows="10"></textarea>
+                        </label>
+                        <label class="field">
+                            <span>French</span>
+                            <textarea id="gt-fr" rows="10"></textarea>
+                        </label>
+                        <div class="gallery">
+                            <div class="gallery-head">
+                                <h3>Photos</h3>
+                                <button id="gt-add-gallery" class="btn btn-ghost" type="button">
+                                    + Add photo
+                                </button>
+                                <input id="gt-gallery-input" type="file" accept="image/*,.heic,.heif" multiple hidden />
+                            </div>
+                            <div id="gt-gallery-list" class="gallery-list"></div>
+                            <div id="gt-gallery-empty" class="gallery-empty">
+                                No photos yet.
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </aside>
 

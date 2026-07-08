@@ -41,6 +41,8 @@ const state = {
     // Cluster-letter → user-provided name. Missing / empty means the cluster
     // falls back to the generic "Cluster A" label in the PDF.
     clusterNames: {},
+    // Getting-there prose per language, edited in the Getting There tab.
+    gettingThere: { en: '', fr: '' },
 };
 
 let uidSeq = 0;
@@ -91,6 +93,12 @@ const els = {
     sidebarTabs: document.querySelectorAll('.sidebar-tab'),
     sidebarPanels: document.querySelectorAll('.sidebar-panel'),
     clusterList: $('#cluster-list'),
+    gtEn: $('#gt-en'),
+    gtFr: $('#gt-fr'),
+    gtAddGallery: $('#gt-add-gallery'),
+    gtGalleryInput: $('#gt-gallery-input'),
+    gtGalleryList: $('#gt-gallery-list'),
+    gtGalleryEmpty: $('#gt-gallery-empty'),
 };
 
 // -----------------------------------------------------------------------------
@@ -112,6 +120,13 @@ async function loadAll() {
     state.clusterNames = bRes.clusterNames && typeof bRes.clusterNames === 'object'
         ? { ...bRes.clusterNames }
         : {};
+    state.gettingThere = bRes.gettingThere && typeof bRes.gettingThere === 'object'
+        ? { en: '', fr: '', ...bRes.gettingThere }
+        : { en: '', fr: '' };
+    els.gtEn.value = state.gettingThere.en || '';
+    els.gtFr.value = state.gettingThere.fr || '';
+    if (!Array.isArray(state.gettingThere.gallery)) state.gettingThere.gallery = [];
+    renderGettingThereGallery();
     if (state.boulders.length) {
         state.selectedId = state.boulders[0]._id;
     }
@@ -140,6 +155,7 @@ async function saveAll() {
             cluster: typeof b.cluster === 'string' ? b.cluster : '',
         })),
         clusterNames: state.clusterNames || {},
+        gettingThere: state.gettingThere || {},
     };
     const res = await fetch('/api/boulders', {
         method: 'PUT',
@@ -620,6 +636,112 @@ function activateSidebarTab(name) {
 for (const t of els.sidebarTabs) {
     t.addEventListener('click', () => activateSidebarTab(t.dataset.tab));
 }
+
+// Getting-there textareas — write into state and mark dirty on every
+// keystroke so Save picks it up.
+els.gtEn.addEventListener('input', () => {
+    state.gettingThere = { ...(state.gettingThere || {}), en: els.gtEn.value };
+    markDirty();
+});
+els.gtFr.addEventListener('input', () => {
+    state.gettingThere = { ...(state.gettingThere || {}), fr: els.gtFr.value };
+    markDirty();
+});
+
+// -----------------------------------------------------------------------------
+// Getting-there gallery — mirrors the per-boulder gallery, but the array
+// lives on state.gettingThere.gallery instead of a boulder object.
+// -----------------------------------------------------------------------------
+function gettingThereFiles() {
+    if (!state.gettingThere) state.gettingThere = { en: '', fr: '', gallery: [] };
+    if (!Array.isArray(state.gettingThere.gallery)) state.gettingThere.gallery = [];
+    return state.gettingThere.gallery;
+}
+
+function renderGettingThereGallery() {
+    els.gtGalleryList.innerHTML = '';
+    const files = gettingThereFiles();
+    els.gtGalleryEmpty.hidden = files.length > 0;
+    for (const filename of files) {
+        const item = document.createElement('div');
+        item.className = 'gallery-item';
+        item.draggable = true;
+        item.dataset.filename = filename;
+        item.style.backgroundImage = `url('/gallery/${encodeURIComponent(filename)}')`;
+
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'del';
+        del.setAttribute('aria-label', 'Remove');
+        del.textContent = '×';
+        del.addEventListener('mousedown', (e) => e.stopPropagation());
+        del.addEventListener('click', () => {
+            state.gettingThere.gallery = files.filter((f) => f !== filename);
+            markDirty();
+            renderGettingThereGallery();
+        });
+        item.append(del);
+
+        item.addEventListener('dragstart', (e) => {
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', filename);
+            requestAnimationFrame(() => item.classList.add('dragging'));
+        });
+        item.addEventListener('dragend', () => {
+            item.classList.remove('dragging');
+            const order = [...els.gtGalleryList.querySelectorAll('.gallery-item')].map(
+                (el) => el.dataset.filename
+            );
+            const same = order.length === files.length && order.every((f, i) => f === files[i]);
+            if (!same) {
+                state.gettingThere.gallery = order;
+                markDirty();
+            }
+        });
+        item.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            const dragging = els.gtGalleryList.querySelector('.dragging');
+            if (!dragging || dragging === item) return;
+            const rect = item.getBoundingClientRect();
+            const beforeX = e.clientX < rect.left + rect.width / 2;
+            const beforeY = e.clientY < rect.top + rect.height / 2;
+            const before = beforeY || (Math.abs(e.clientY - (rect.top + rect.height / 2)) < 4 && beforeX);
+            els.gtGalleryList.insertBefore(dragging, before ? item : item.nextSibling);
+        });
+
+        els.gtGalleryList.append(item);
+    }
+}
+
+els.gtAddGallery.addEventListener('click', () => els.gtGalleryInput.click());
+els.gtGalleryInput.addEventListener('change', async () => {
+    const files = [...els.gtGalleryInput.files];
+    els.gtGalleryInput.value = '';
+    if (!files.length) return;
+    els.gtAddGallery.disabled = true;
+    try {
+        for (const file of files) {
+            const fd = new FormData();
+            fd.append('photo', file);
+            fd.append('boulderName', 'getting-there');
+            const res = await fetch('/api/gallery', { method: 'POST', body: fd });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                setStatus(`Upload failed: ${err.error || res.status}`);
+                continue;
+            }
+            const { filename } = await res.json();
+            state.gettingThere.gallery = [...gettingThereFiles(), filename];
+            renderGettingThereGallery();
+            markDirty();
+        }
+        setStatus(`Uploaded ${files.length}`);
+        setTimeout(() => setStatus(''), 2000);
+    } finally {
+        els.gtAddGallery.disabled = false;
+    }
+});
 
 // Cluster the GPS-having boulders west→east by the two largest longitude
 // gaps (same algorithm as topo/data.py:cluster_by_lon_gap). Returns

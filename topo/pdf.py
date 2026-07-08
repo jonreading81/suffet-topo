@@ -138,7 +138,7 @@ def _grade_range(problems, project_label):
     return lo if lo == hi else f"{lo} − {hi}"
 
 
-def build_pdf(boulders, out_path, lang="en", clusters=None):
+def build_pdf(boulders, out_path, lang="en", clusters=None, data_dir=None):
     L = labels(lang)
     W, H = A4
     c = pdfcanvas.Canvas(out_path, pagesize=A4)
@@ -226,7 +226,7 @@ def build_pdf(boulders, out_path, lang="en", clusters=None):
     # Getting-there prose below the map, inside a soft card (same visual
     # language as the Location card on the boulder pages). Paragraphs come
     # from `config.yaml -> getting_there.{en,fr}`, split by blank lines.
-    gt = getting_there(lang)
+    gt = getting_there(lang, data_dir=data_dir)
     if gt:
         padx, pady = 16, 14
         card_w = W - 2 * M
@@ -285,6 +285,69 @@ def build_pdf(boulders, out_path, lang="en", clusters=None):
                 c.drawString(M + padx, py, ln)
                 py -= line_h
             py -= para_gap
+
+    # Getting-there gallery — up to three extra photos in a wide row
+    # anchored to the bottom of the page, same look + geometry as the
+    # boulder-detail gallery. Read directly from data/getting_there.json.
+    gt_gallery = []
+    if data_dir:
+        try:
+            import json as _json
+            with open(os.path.join(data_dir, "getting_there.json")) as _f:
+                _obj = _json.load(_f)
+            if isinstance(_obj, dict) and isinstance(_obj.get("gallery"), list):
+                gt_gallery = [
+                    os.path.join(data_dir, "gallery", f)
+                    for f in _obj["gallery"] if isinstance(f, str)
+                ]
+                gt_gallery = [p for p in gt_gallery if os.path.exists(p)][:3]
+        except Exception:
+            gt_gallery = []
+    if gt_gallery:
+        col_gap = 12
+        space_below_divider = 16
+        heading_to_divider = 12
+        grid_w = W - 2 * M
+        cols = 3
+        thumb_w = (grid_w - col_gap * (cols - 1)) / cols
+        footer_line = 44
+        panel_bottom = footer_line + 34
+        # Room = between where the prose left off (or the map, if no prose)
+        # and the panel bottom, minus the heading + divider block above the
+        # image row.
+        prose_bottom = py if gt else y_after_maps
+        panel_top_ceiling = prose_bottom - 14
+        max_image_h = panel_top_ceiling - (
+            space_below_divider + heading_to_divider + 6
+        ) - panel_bottom
+        if max_image_h > 30:
+            rendered = []
+            for img_path in gt_gallery:
+                try:
+                    _im = Image.open(img_path)
+                    _iw, _ih = _im.size
+                    scale = min(thumb_w / _iw, max_image_h / _ih)
+                    rendered.append((img_path, _iw * scale, _ih * scale))
+                except Exception as e:
+                    print(f"  getting-there gallery error {img_path}: {e}")
+            if rendered:
+                tallest = max(dh for _, _, dh in rendered)
+                divider_y = panel_bottom + tallest + space_below_divider
+                heading_y = divider_y + heading_to_divider
+                c.setFillColor(INK)
+                c.setFont(SERIF, 13)
+                c.drawString(M, heading_y, L.get("gallery", "Gallery"))
+                c.setStrokeColor(BLUE)
+                c.setLineWidth(1.2)
+                c.line(M, divider_y, M + grid_w, divider_y)
+                for i, (img_path, dw, dh) in enumerate(rendered):
+                    dx = M + i * (thumb_w + col_gap)
+                    dy = panel_bottom
+                    _draw_rounded_image(c, img_path, dx, dy, dw, dh)
+                    c.setStrokeColor(LINE)
+                    c.setLineWidth(0.5)
+                    c.roundRect(dx, dy, dw, dh, CORNER_RADIUS_PT, fill=0, stroke=1)
+
     footer(1)
     c.showPage()
 
