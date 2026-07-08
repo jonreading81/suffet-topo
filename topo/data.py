@@ -8,10 +8,46 @@ import csv
 import json
 import math
 import os
+import re
 
 from .exif import read_gps
 from .lines import parse_line
 from .style import BRAND, CAMERA_OFFSET_M, LINE_PALETTE, REFUGE
+
+
+# 4-bucket grade → colour map, French-grade based.
+#   3, 3+, 4, 5, 6A          → green
+#   6A+, 6B, 6B+, 6C         → amber-yellow
+#   6C+, 7A, 7A+, 7B         → red
+#   7B+ and above            → near-black
+GRADE_COLOR_GREEN = "#2f9e44"
+GRADE_COLOR_YELLOW = "#f59f00"
+GRADE_COLOR_RED = "#e03131"
+GRADE_COLOR_BLACK = "#212529"
+
+
+def grade_color(grade, fallback=None):
+    """Return the hex-string colour bucket for a French bouldering grade.
+    Empty / unparseable / "Project" / dash grades return `fallback`."""
+    if not grade:
+        return fallback
+    g = grade.strip().upper()
+    if g in ("PROJECT", "–", "-"):
+        return fallback
+    m = re.match(r"^(\d+)([A-C])?(\+)?", g)
+    if not m:
+        return fallback
+    num = int(m.group(1))
+    letter = m.group(2) or "A"
+    plus = 1 if m.group(3) == "+" else 0
+    idx = (num, ord(letter) - ord("A"), plus)
+    if idx <= (6, 0, 0):
+        return GRADE_COLOR_GREEN
+    if idx <= (6, 2, 0):
+        return GRADE_COLOR_YELLOW
+    if idx <= (7, 1, 0):
+        return GRADE_COLOR_RED
+    return GRADE_COLOR_BLACK
 
 
 def _load_gallery(data_dir):
@@ -121,7 +157,11 @@ def build_boulders(rows, photos_dir, gallery_dir=None):
                 project = project_cell in ("true", "1", "yes", "y")
             else:
                 project = grade.lower() == "project" or problem_name.lower() == "project"
-            color = "#000000" if project else LINE_PALETTE[(no - 1) % len(LINE_PALETTE)]
+            palette_fallback = LINE_PALETTE[(no - 1) % len(LINE_PALETTE)]
+            if project:
+                color = "#000000"
+            else:
+                color = grade_color(grade, fallback=palette_fallback)
             problems.append(
                 {
                     "no": no,

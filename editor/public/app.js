@@ -219,11 +219,36 @@ function colorFor(no) {
     return LINE_PALETTE[(no - 1) % LINE_PALETTE.length];
 }
 
+// 4-bucket grade → colour map, mirrored from topo/data.py:grade_color.
+//   3, 3+, 4, 5, 6A          → green
+//   6A+, 6B, 6B+, 6C         → yellow
+//   6C+, 7A, 7A+, 7B         → red
+//   7B+ and above            → near-black
+function gradeColor(grade) {
+    if (!grade) return null;
+    const g = String(grade).trim().toUpperCase();
+    if (g === 'PROJECT' || g === '–' || g === '-') return null;
+    const m = /^(\d+)([A-C])?(\+)?/.exec(g);
+    if (!m) return null;
+    const num = parseInt(m[1], 10);
+    const letter = m[2] || 'A';
+    const plus = m[3] === '+' ? 1 : 0;
+    const idx = [num, letter.charCodeAt(0) - 65, plus];
+    const le = (a, b) => (a[0] !== b[0] ? a[0] < b[0]
+                        : a[1] !== b[1] ? a[1] < b[1]
+                        : a[2] <= b[2]);
+    if (le(idx, [6, 0, 0])) return '#2f9e44';
+    if (le(idx, [6, 2, 0])) return '#f59f00';
+    if (le(idx, [7, 1, 0])) return '#e03131';
+    return '#212529';
+}
+
 // The colour we use for a problem's line / marker / card border. Projects
-// always render in black so they read as "unclimbed"; everything else cycles
-// through LINE_PALETTE by the problem number.
+// always render in black; everything else uses the grade bucket, falling
+// back to LINE_PALETTE-by-number for ungraded problems.
 function accentColor(p) {
-    return p.project ? '#000000' : colorFor(p.no);
+    if (p.project) return '#000000';
+    return gradeColor(p.grade) || colorFor(p.no);
 }
 
 // Normalise boulder names for duplicate detection — trim + lowercase so
@@ -820,6 +845,8 @@ function buildProblemRow(p) {
     });
     gradeSel.addEventListener('change', () => {
         p.grade = gradeSel.value;
+        node.style.setProperty('--accent', accentColor(p));
+        renderOverlay();
         markDirty();
     });
     projectCheck.addEventListener('change', () => {

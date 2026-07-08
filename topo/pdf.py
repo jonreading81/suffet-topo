@@ -516,7 +516,9 @@ def build_pdf(boulders, out_path, lang="en", clusters=None):
                 c.setFillColor(HexColor("#6a6a6a"))
                 grade_text = f"({grade_val})" if grade_val else "(–)"
             else:
-                c.setFillColor(BLUE)
+                # Grade text stays black — the line + numbered circle
+                # already carry the colour bucket.
+                c.setFillColor(INK)
                 grade_text = grade_val or "–"
             c.setFont(BODY_BOLD, 10)
             c.drawRightString(rx + rw, yp, grade_text)
