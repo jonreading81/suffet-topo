@@ -167,7 +167,7 @@ def build_pdf(boulders, out_path, lang="en", clusters=None):
         if number is not None:
             # Brand-blue circle with white ring + white digit, sitting on
             # the title's cap-height midline just left of the name.
-            circ_r = 10
+            circ_r = 9
             circ_cx = M + circ_r
             circ_cy = H - 52 + 6
             c.setFillColor(BLUE)
