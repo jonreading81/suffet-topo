@@ -155,6 +155,47 @@ body {
     color: var(--mut);
     font-size: 12px;
 }
+.cluster-item .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 4px;
+    min-height: 32px;
+    padding: 4px;
+    border: 1px dashed transparent;
+    border-radius: 6px;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+.cluster-item.drop-target .chips {
+    border-color: var(--blue);
+    background: rgba(0, 74, 173, 0.05);
+}
+.cluster-item .chip {
+    background: var(--card);
+    color: var(--ink);
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    cursor: grab;
+    user-select: none;
+    white-space: nowrap;
+}
+.cluster-item .chip.dragging {
+    opacity: 0.3;
+    cursor: grabbing;
+}
+.cluster-item .chip .idx {
+    color: var(--mut);
+    margin-right: 4px;
+    font-variant-numeric: tabular-nums;
+}
+.cluster-item .empty {
+    color: var(--mut);
+    font-size: 12px;
+    font-style: italic;
+    padding: 4px 6px;
+}
 .sidebar-header {
     display: flex;
     align-items: center;

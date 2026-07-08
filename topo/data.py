@@ -38,6 +38,19 @@ def load_cluster_names(data_dir):
         return {}
 
 
+def load_cluster_assignments(data_dir):
+    """Read data/cluster_assignments.json (boulder name → cluster letter).
+    An entry here overrides the automatic longitude-gap clustering for that
+    boulder. Returns an empty dict if the file is missing or malformed."""
+    path = os.path.join(data_dir, "cluster_assignments.json")
+    try:
+        with open(path) as f:
+            obj = json.load(f)
+        return obj if isinstance(obj, dict) else {}
+    except Exception:
+        return {}
+
+
 def _offset_by_bearing(lat, lon, bearing_deg, distance_m):
     """Shift (lat, lon) `distance_m` metres in the compass bearing direction
     (0° = north, clockwise). Uses the flat-earth approximation, which is
@@ -182,11 +195,14 @@ def build_boulders(rows, photos_dir, gallery_dir=None):
     return ordered
 
 
-def cluster_by_lon_gap(boulders, n_clusters=3):
-    """Split boulders (that have real GPS) into `n_clusters` groups by
-    splitting on the largest longitude gaps. Boulders without GPS are
-    returned separately so callers can list them but not place them on
-    a map.
+def cluster_by_lon_gap(boulders, n_clusters=3, assignments=None):
+    """Split boulders (that have real GPS) into `n_clusters` groups.
+
+    If `assignments` (boulder-name → cluster-letter) is provided and any
+    boulder is listed, those explicit assignments win — boulders are
+    grouped by letter (west→east within each group). Any boulder without
+    an assignment falls back to the automatic longitude-gap clustering
+    used elsewhere.
 
     Returns (clusters, without_gps): clusters is a list of `n_clusters`
     lists, each ordered west→east; without_gps is a flat list.
@@ -196,6 +212,37 @@ def cluster_by_lon_gap(boulders, n_clusters=3):
         key=lambda b: b["lon"],
     )
     without_gps = [b for b in boulders if not b.get("_has_gps")]
+
+    # Manual mode — group by the user's assignments, sorted west→east
+    # within each cluster. Assumes assignments use A, B, C, ... letters.
+    assignments = assignments or {}
+    manual_used = any(assignments.get(b["name"]) for b in with_gps)
+    if manual_used:
+        letters = "ABCDEFGHIJKL"
+        groups = {L: [] for L in letters[:n_clusters]}
+        unassigned = []
+        for b in with_gps:
+            letter = (assignments.get(b["name"]) or "").strip().upper()
+            if letter in groups:
+                groups[letter].append(b)
+            else:
+                unassigned.append(b)
+        # Fold any un-assigned GPS boulders into whichever cluster is
+        # nearest (by mean longitude) so nothing goes missing.
+        for b in unassigned:
+            nearest = min(
+                (L for L in groups if groups[L]),
+                key=lambda L: abs(
+                    b["lon"] - sum(x["lon"] for x in groups[L]) / len(groups[L])
+                ),
+                default="A",
+            )
+            groups[nearest].append(b)
+        clusters = []
+        for L in letters[:n_clusters]:
+            clusters.append(sorted(groups[L], key=lambda b: b["lon"]))
+        return clusters, without_gps
+
     if len(with_gps) <= n_clusters:
         return ([[b] for b in with_gps] +
                 [[] for _ in range(n_clusters - len(with_gps))], without_gps)

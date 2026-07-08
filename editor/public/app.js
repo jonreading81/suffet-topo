@@ -137,6 +137,7 @@ async function saveAll() {
                 line: p.line || '',
             })),
             gallery: Array.isArray(b.gallery) ? b.gallery.filter(Boolean) : [],
+            cluster: typeof b.cluster === 'string' ? b.cluster : '',
         })),
         clusterNames: state.clusterNames || {},
     };
@@ -552,9 +553,37 @@ for (const t of els.sidebarTabs) {
 // Cluster the GPS-having boulders west→east by the two largest longitude
 // gaps (same algorithm as topo/data.py:cluster_by_lon_gap). Returns
 // [[boulder, ...], ...] ordered by longitude.
+// Cluster boulders into `n` groups. If any boulder has a `cluster` letter
+// set, all boulders are grouped by that letter (west→east within each
+// group). Otherwise falls back to the same longitude-gap algorithm the
+// Python side uses.
 function clusterByLonGap(boulders, n = 3) {
     const withGps = boulders.filter((b) => typeof b.lon === 'number' && !isNaN(b.lon));
     withGps.sort((a, b) => a.lon - b.lon);
+    const letters = 'ABCDEFGHIJKL'.slice(0, n).split('');
+    const anyManual = withGps.some((b) => typeof b.cluster === 'string' && b.cluster.trim());
+    if (anyManual) {
+        const groups = Object.fromEntries(letters.map((L) => [L, []]));
+        const unassigned = [];
+        for (const b of withGps) {
+            const L = (b.cluster || '').trim().toUpperCase();
+            if (L in groups) groups[L].push(b);
+            else unassigned.push(b);
+        }
+        // Snap un-assigned boulders to the nearest cluster by mean longitude.
+        for (const b of unassigned) {
+            const nonEmpty = letters.filter((L) => groups[L].length);
+            const nearest = nonEmpty.length
+                ? nonEmpty.reduce((best, L) => {
+                      const mean = groups[L].reduce((s, x) => s + x.lon, 0) / groups[L].length;
+                      const dist = Math.abs(b.lon - mean);
+                      return dist < best.dist ? { L, dist } : best;
+                  }, { L: nonEmpty[0], dist: Infinity }).L
+                : 'A';
+            groups[nearest].push(b);
+        }
+        return letters.map((L) => groups[L].sort((a, b) => a.lon - b.lon));
+    }
     if (withGps.length <= n) return withGps.map((b) => [b]).concat(
         Array.from({ length: Math.max(0, n - withGps.length) }, () => [])
     );
@@ -574,6 +603,22 @@ function clusterByLonGap(boulders, n = 3) {
     return clusters;
 }
 
+// Called from the drag handler before we apply the user's move. Walks the
+// currently displayed clusters and writes the corresponding letter onto
+// each boulder so the manual-mode code path in clusterByLonGap keeps
+// everyone else where they were.
+function freezeCurrentClusters() {
+    const clusters = clusterByLonGap(state.boulders, 3);
+    const letters = 'ABCDEFGH';
+    clusters.forEach((cluster, i) => {
+        const letter = letters[i];
+        for (const b of cluster) {
+            if (!b.cluster) b.cluster = letter;
+        }
+    });
+}
+
+
 function renderClusters() {
     const clusters = clusterByLonGap(state.boulders, 3);
     els.clusterList.innerHTML = '';
@@ -582,6 +627,7 @@ function renderClusters() {
         const letter = letters[i];
         const li = document.createElement('li');
         li.className = 'cluster-item';
+        li.dataset.letter = letter;
 
         const badge = document.createElement('div');
         badge.className = 'letter';
@@ -597,15 +643,61 @@ function renderClusters() {
             state.clusterNames[letter] = input.value;
             markDirty();
         });
-        const sub = document.createElement('div');
-        sub.className = 'sub';
+
+        // Boulder chips — draggable; drop into another cluster's chip row
+        // reassigns b.cluster and re-renders the whole tab.
+        const chips = document.createElement('div');
+        chips.className = 'chips';
         if (cluster.length) {
-            const names = cluster.map((b) => b.name || '(unnamed)').join(', ');
-            sub.textContent = `${cluster.length} boulder${cluster.length === 1 ? '' : 's'} · ${names}`;
+            for (const b of cluster) {
+                const chip = document.createElement('span');
+                chip.className = 'chip';
+                chip.draggable = true;
+                chip.dataset.boulderId = b._id;
+                const idx = document.createElement('span');
+                idx.className = 'idx';
+                idx.textContent = String(b.id ?? '');
+                const name = document.createElement('span');
+                name.textContent = b.name || '(unnamed)';
+                chip.append(idx, name);
+                chip.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', b._id);
+                    requestAnimationFrame(() => chip.classList.add('dragging'));
+                });
+                chip.addEventListener('dragend', () => chip.classList.remove('dragging'));
+                chips.append(chip);
+            }
         } else {
-            sub.textContent = 'No boulders';
+            const empty = document.createElement('span');
+            empty.className = 'empty';
+            empty.textContent = '(drop boulders here)';
+            chips.append(empty);
         }
-        body.append(input, sub);
+
+        li.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            li.classList.add('drop-target');
+        });
+        li.addEventListener('dragleave', () => li.classList.remove('drop-target'));
+        li.addEventListener('drop', (e) => {
+            e.preventDefault();
+            li.classList.remove('drop-target');
+            const bid = e.dataTransfer.getData('text/plain');
+            const b = state.boulders.find((x) => x._id === bid);
+            if (!b || b.cluster === letter) return;
+            // Freeze the CURRENT arrangement onto every boulder before we
+            // apply the user's move — otherwise the "snap to nearest"
+            // fallback in clusterByLonGap pulls all un-assigned boulders
+            // into whichever cluster the newly-moved one just landed in.
+            freezeCurrentClusters();
+            b.cluster = letter;
+            markDirty();
+            renderClusters();
+        });
+
+        body.append(input, chips);
         li.append(badge, body);
         els.clusterList.append(li);
     });

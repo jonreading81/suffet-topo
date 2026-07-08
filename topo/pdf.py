@@ -9,6 +9,7 @@ the `Project` grade string, mapped via `labels['project_grade']` (en: 'Project',
 fr: 'Projet'). Beta / notes uses the `notes_fr` field in FR when present, else
 falls back to `notes`.
 """
+import io
 import os
 import re
 
@@ -58,17 +59,53 @@ else:
 
 
 def _rounded_reader(path, display_w, display_h, radius_pt=CORNER_RADIUS_PT):
-    """Return an ImageReader whose alpha mask rounds the image's corners.
-    Radius is expressed in PDF points and rescaled to source pixels so the
-    curve visually matches the rounded border we draw at the display size.
+    """Return a compact JPEG ImageReader for `path`, downsampled to at most
+    ~2× the display size (roughly 144 dpi at natural print scale). Kept as
+    JPEG rather than the previous RGBA-PNG so the resulting PDF stays an
+    order of magnitude smaller. Rounded corners are handled by the caller
+    via `canvas.clipPath` before drawing — this reader is unrounded.
     """
-    im = Image.open(path).convert("RGBA")
+    im = Image.open(path)
+    # Apply EXIF orientation and drop alpha (rounding is via clipPath now).
+    if im.mode != "RGB":
+        im = im.convert("RGB")
     px_w, px_h = im.size
-    r = max(1, int(round(radius_pt * min(px_w / display_w, px_h / display_h))))
-    mask = Image.new("L", (px_w, px_h), 0)
-    ImageDraw.Draw(mask).rounded_rectangle((0, 0, px_w - 1, px_h - 1), radius=r, fill=255)
-    im.putalpha(mask)
-    return ImageReader(im)
+    max_w = max(64, int(round(display_w * 2)))
+    max_h = max(64, int(round(display_h * 2)))
+    if px_w > max_w or px_h > max_h:
+        scale = min(max_w / px_w, max_h / px_h)
+        im = im.resize((int(round(px_w * scale)), int(round(px_h * scale))), Image.LANCZOS)
+    buf = io.BytesIO()
+    im.save(buf, "JPEG", quality=90, optimize=True)
+    buf.seek(0)
+    return ImageReader(buf)
+
+
+def _rounded_clip(c, x, y, w, h, r):
+    """Push a clipping path shaped like a rounded rect onto the canvas
+    stack. Caller must `saveState()` before and `restoreState()` after."""
+    p = c.beginPath()
+    p.moveTo(x + r, y)
+    p.lineTo(x + w - r, y)
+    p.arcTo(x + w - 2 * r, y, x + w, y + 2 * r, startAng=270, extent=90)
+    p.lineTo(x + w, y + h - r)
+    p.arcTo(x + w - 2 * r, y + h - 2 * r, x + w, y + h, startAng=0, extent=90)
+    p.lineTo(x + r, y + h)
+    p.arcTo(x, y + h - 2 * r, x + 2 * r, y + h, startAng=90, extent=90)
+    p.lineTo(x, y + r)
+    p.arcTo(x, y, x + 2 * r, y + 2 * r, startAng=180, extent=90)
+    p.close()
+    c.clipPath(p, stroke=0, fill=0)
+
+
+def _draw_rounded_image(c, path, x, y, w, h, radius=CORNER_RADIUS_PT):
+    """Draw a JPEG-compressed, aspect-preserving image at (x, y, w, h) with
+    rounded corners via a canvas clip path. Much smaller than embedding
+    the image with an RGBA soft mask."""
+    c.saveState()
+    _rounded_clip(c, x, y, w, h, radius)
+    c.drawImage(_rounded_reader(path, w, h), x, y, w, h)
+    c.restoreState()
 
 
 def _grade_key(g):
@@ -168,7 +205,7 @@ def build_pdf(boulders, out_path, lang="en", clusters=None):
         im = Image.open(path)
         iw, ih = im.size
         h = cw * ih / iw
-        c.drawImage(_rounded_reader(path, cw, h), M, top_y - h, cw, h, mask="auto")
+        _draw_rounded_image(c, path, M, top_y - h, cw, h)
         c.setStrokeColor(LINE)
         c.setLineWidth(0.5)
         c.roundRect(M, top_y - h, cw, h, CORNER_RADIUS_PT, fill=0, stroke=1)
@@ -254,7 +291,7 @@ def build_pdf(boulders, out_path, lang="en", clusters=None):
     im = Image.open(close_path)
     iw, ih = im.size
     hm2 = cw * ih / iw
-    c.drawImage(_rounded_reader(close_path, cw, hm2), M, mtop - hm2, cw, hm2, mask="auto")
+    _draw_rounded_image(c, close_path, M, mtop - hm2, cw, hm2)
     c.setStrokeColor(LINE)
     c.setLineWidth(0.5)
     c.roundRect(M, mtop - hm2, cw, hm2, CORNER_RADIUS_PT, fill=0, stroke=1)
@@ -341,10 +378,7 @@ def build_pdf(boulders, out_path, lang="en", clusters=None):
         im2 = Image.open(cluster_map_path)
         iw2, ih2 = im2.size
         hh = cw * ih2 / iw2
-        c.drawImage(
-            _rounded_reader(cluster_map_path, cw, hh),
-            M, mtop - hh, cw, hh, mask="auto",
-        )
+        _draw_rounded_image(c, cluster_map_path, M, mtop - hh, cw, hh)
         c.setStrokeColor(LINE)
         c.setLineWidth(0.5)
         c.roundRect(M, mtop - hh, cw, hh, CORNER_RADIUS_PT, fill=0, stroke=1)
@@ -410,7 +444,7 @@ def build_pdf(boulders, out_path, lang="en", clusters=None):
         ph = pw * ih / iw
         px = M
         py = H - 130 - ph
-        c.drawImage(_rounded_reader(b["_render"], pw, ph), px, py, pw, ph, mask="auto")
+        _draw_rounded_image(c, b["_render"], px, py, pw, ph)
         c.setStrokeColor(LINE)
         c.setLineWidth(0.5)
         c.roundRect(px, py, pw, ph, CORNER_RADIUS_PT, fill=0, stroke=1)
@@ -559,10 +593,7 @@ def build_pdf(boulders, out_path, lang="en", clusters=None):
                     for i, (img_path, dw, dh) in enumerate(rendered):
                         dx = M + i * (thumb_w + col_gap)
                         dy = panel_bottom
-                        c.drawImage(
-                            _rounded_reader(img_path, dw, dh),
-                            dx, dy, dw, dh, mask="auto",
-                        )
+                        _draw_rounded_image(c, img_path, dx, dy, dw, dh)
                         c.setStrokeColor(LINE)
                         c.setLineWidth(0.5)
                         c.roundRect(dx, dy, dw, dh, CORNER_RADIUS_PT, fill=0, stroke=1)

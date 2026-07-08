@@ -32,7 +32,13 @@ try:
 except Exception:
     pass
 
-from topo.data import build_boulders, cluster_by_lon_gap, load_cluster_names, load_rows
+from topo.data import (
+    build_boulders,
+    cluster_by_lon_gap,
+    load_cluster_assignments,
+    load_cluster_names,
+    load_rows,
+)
 from topo.html import build_html
 from topo.lines import render_boulder_photo
 from topo.pdf import build_pdf
@@ -124,7 +130,10 @@ def main():
     # Cluster the boulders into 3 spatial groups (by natural longitude gaps)
     # so the overview can show 3 range-labelled markers instead of 26
     # overlapping pins. Each cluster then gets its own zoomed detail map.
-    clusters, no_gps_boulders = cluster_by_lon_gap(boulders, n_clusters=3)
+    cluster_assignments = load_cluster_assignments(args.input)
+    clusters, no_gps_boulders = cluster_by_lon_gap(
+        boulders, n_clusters=3, assignments=cluster_assignments
+    )
     # Stamp the cluster letter on each boulder so downstream code (PDF pages)
     # can reference it.
     cluster_letters = "ABCDEFGHIJKL"
