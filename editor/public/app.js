@@ -524,7 +524,10 @@ function renderGallery() {
     for (const filename of files) {
         const item = document.createElement('div');
         item.className = 'gallery-item';
+        item.draggable = true;
+        item.dataset.filename = filename;
         item.style.backgroundImage = `url('/gallery/${encodeURIComponent(filename)}')`;
+
         const del = document.createElement('button');
         del.type = 'button';
         del.className = 'del';
@@ -535,8 +538,52 @@ function renderGallery() {
             markDirty();
             renderGallery();
         });
+        // Mouseup on the delete button shouldn't trigger drag on the parent.
+        del.addEventListener('mousedown', (e) => e.stopPropagation());
         item.append(del);
+
+        // Drag-drop reordering — live shuffle under the cursor; commit
+        // b.gallery from the DOM order on drop.
+        item.addEventListener('dragstart', (e) => {
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', filename);
+            requestAnimationFrame(() => item.classList.add('dragging'));
+        });
+        item.addEventListener('dragend', () => {
+            item.classList.remove('dragging');
+            commitGalleryOrderFromDom();
+        });
+        item.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            const dragging = els.galleryList.querySelector('.dragging');
+            if (!dragging || dragging === item) return;
+            const rect = item.getBoundingClientRect();
+            // 2-D grid — decide by pointer position relative to the item's
+            // centre; horizontal wins because rows can be short.
+            const beforeX = e.clientX < rect.left + rect.width / 2;
+            const beforeY = e.clientY < rect.top + rect.height / 2;
+            const before = beforeY || (Math.abs(e.clientY - (rect.top + rect.height / 2)) < 4 && beforeX);
+            els.galleryList.insertBefore(dragging, before ? item : item.nextSibling);
+        });
+
         els.galleryList.append(item);
+    }
+}
+
+// Read the current DOM order of gallery items back into the boulder's
+// gallery array — called on dragend.
+function commitGalleryOrderFromDom() {
+    const b = selectedBoulder();
+    if (!b) return;
+    const order = [...els.galleryList.querySelectorAll('.gallery-item')].map(
+        (el) => el.dataset.filename
+    );
+    const same = order.length === (b.gallery || []).length
+        && order.every((f, i) => f === b.gallery[i]);
+    if (!same) {
+        b.gallery = order;
+        markDirty();
     }
 }
 

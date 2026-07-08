@@ -371,6 +371,11 @@ body {
     border-radius: 6px;
     border: 1px solid var(--line);
     overflow: hidden;
+    cursor: grab;
+}
+.gallery-item.dragging {
+    opacity: 0;
+    cursor: grabbing;
 }
 .gallery-item .del {
     position: absolute;
